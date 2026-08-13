@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #4F7CFF;
+  --color-primary-dark: #3D63D9;
+  --color-secondary: #6C63FF;
+  --color-bg-soft: #F0F4F8;
+  --color-surface: #FFFFFF;
+  --color-text-main: #2D3748;
+  --color-text-muted: #718096;
+
+  --shadow-soft: 0 8px 24px rgba(149, 157, 165, 0.15);
+  --shadow-soft-lg: 0 12px 32px rgba(149, 157, 165, 0.2);
+
+  --radius-soft: 1rem;
+  --radius-soft-lg: 1.5rem;
+}
