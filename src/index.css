@@ -1,17 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #4F7CFF;
-  --color-primary-dark: #3D63D9;
-  --color-secondary: #6C63FF;
-  --color-bg-soft: #F0F4F8;
-  --color-surface: #FFFFFF;
-  --color-text-main: #2D3748;
-  --color-text-muted: #718096;
+  --color-primary: #1E3A5F;
+  --color-primary-dark: #15293F;
+  --color-secondary: #D9722B;
+  --color-bg-soft: #F7F7F5;
+  --color-surface: #F7F7F5;
+  --color-text-main: #212B36;
+  --color-text-muted: #637381;
 
-  --shadow-soft: 0 8px 24px rgba(149, 157, 165, 0.15);
-  --shadow-soft-lg: 0 12px 32px rgba(149, 157, 165, 0.2);
+  --shadow-soft: 8px 8px 16px rgba(163, 163, 163, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9);
+  --shadow-soft-lg: 10px 10px 20px rgba(163, 163, 163, 0.5), -10px -10px 20px rgba(255, 255, 255, 1);
+  --shadow-inset: inset 4px 4px 8px rgba(163, 163, 163, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
 
   --radius-soft: 1rem;
   --radius-soft-lg: 1.5rem;
+}
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-in {
+  animation: fadeInUp 0.5s ease forwards;
 }

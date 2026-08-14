@@ -21,7 +21,7 @@ function Contact() {
               <input
                 type="text"
                 placeholder="Your full name"
-                className="w-full px-4 py-2 rounded-soft bg-bg-soft border border-transparent focus:border-primary outline-none transition"
+                className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary focus:shadow-[0_0_0_3px_rgba(30,58,95,0.15)] outline-none transition"
               />
             </div>
             <div>
@@ -29,7 +29,7 @@ function Contact() {
               <input
                 type="email"
                 placeholder="you@example.com"
-                className="w-full px-4 py-2 rounded-soft bg-bg-soft border border-transparent focus:border-primary outline-none transition"
+                className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary focus:shadow-[0_0_0_3px_rgba(30,58,95,0.15)] outline-none transition"
               />
             </div>
             <div>
@@ -37,12 +37,12 @@ function Contact() {
               <textarea
                 rows="4"
                 placeholder="How can we help?"
-                className="w-full px-4 py-2 rounded-soft bg-bg-soft border border-transparent focus:border-primary outline-none transition"
+               className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary focus:shadow-[0_0_0_3px_rgba(30,58,95,0.15)] outline-none transition"
               ></textarea>
             </div>
             <button
               type="button"
-              className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark transition w-full"
+              className="bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition"
             >
               Send Message
             </button>
