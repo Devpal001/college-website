@@ -24,14 +24,13 @@ function Footer() {
         </div>
 
         <div>
-          <h4 className="font-semibold text-text-main mb-3">Contact</h4>
-          <ul className="space-y-2 text-sm">
-            <li>Jammu, Jammu & Kashmir</li>
-            <li>info@mbscet.edu</li>
-            <li>+91 98765 43210</li>
-          </ul>
+            <h4 className="font-semibold text-text-main mb-3">Contact</h4>
+            <ul className="space-y-2 text-sm">
+                <li>Babliana, Jeevan Nagar Road, P.O. Miran Sahib, Jammu – 181101</li>
+                <li>principal@mbscet.edu.in</li>
+                <li>0191-2970136</li>
+            </ul>
         </div>
-
       </div>
 
       <div className="text-center text-xs text-gray-400 mt-8">

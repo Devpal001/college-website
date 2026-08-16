@@ -1,32 +1,46 @@
 import { Link } from 'react-router-dom';
 import { GraduationCap, Users, Building2 } from 'lucide-react';
+import campusImg from '../assets/admin_library-1.jpg';
 function Home() {
   return (
     <div>
       {/* Hero Section */}
-     <section className="px-6 py-24 text-center bg-bg-soft fade-in">
-        <h1 className="text-5xl font-bold text-text-main leading-tight">
-          Shape Your Future at <span className="text-primary">Mahant Bachittar Singh College of Engineering & Technology</span>
-        </h1>
-        <p className="text-text-muted mt-6 max-w-xl mx-auto text-lg">
-          Quality education, world-class faculty, and a campus built for growth.
-          Discover programs designed to launch your career.
-        </p>
-        <div className="mt-8 flex gap-4 justify-center">
-          <Link
-            to="/admissions"
-            className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark transition"
-          >
-            Apply Now
-          </Link>
-          <Link
-            to="/about"
-            className="bg-surface text-text-main px-6 py-3 rounded-soft shadow-soft border border-gray-200 hover:shadow-soft-lg transition"
-            >
-             Learn More
-           </Link>
-        </div>
-      </section>
+<section
+  className="relative px-6 py-24 text-center overflow-hidden fade-in"
+  style={{
+    backgroundImage: `url(${campusImg})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  }}
+>
+  {/* Semi-transparent overlay */}
+  <div className="absolute inset-0 bg-bg-soft opacity-70"></div>
+
+  {/* Content sits above the overlay */}
+  <div className="relative z-10">
+    <h1 className="text-5xl font-bold text-text-main leading-tight">
+      Shape Your Future at <span className="text-primary">MBSCET</span>
+    </h1>
+    <p className="text-text-muted mt-6 max-w-xl mx-auto text-lg">
+      A spirituo-educational community inspired by Mahant Bachittar Singh Ji,
+      committed to providing learners with excellent erudition.
+    </p>
+    <div className="mt-8 flex gap-4 justify-center">
+      <Link
+        to="/admissions"
+        className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition"
+      >
+        Apply Now
+      </Link>
+      <Link
+        to="/about"
+        className="bg-surface text-text-main px-6 py-3 rounded-soft shadow-soft border border-gray-200 hover:shadow-soft-lg transition"
+      >
+        Learn More
+      </Link>
+    </div>
+  </div>
+</section>
 
       {/* Highlights Section */}
       <section className="px-6 py-24 text-center bg-bg-soft fade-in">

@@ -4,7 +4,7 @@ function Admissions() {
   return (
     <div>
       {/* Header */}
-      <section className="px-6 py-20 text-center bg-bg-soft">
+      <section className="px-6 py-20 text-center bg-bg-soft fade-in">
         <h1 className="text-4xl font-bold text-text-main">Admissions</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto">
           Start your journey with us. Here's everything you need to know to apply.

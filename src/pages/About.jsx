@@ -2,7 +2,7 @@ function About() {
   return (
     <div>
       {/* Header */}
-      <section className="px-6 py-20 text-center bg-bg-soft">
+      <section className="px-6 py-20 text-center bg-bg-soft fade-in">
         <h1 className="text-4xl font-bold text-text-main">About YourCollege</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto">
           For decades, we've been committed to academic excellence, innovation,
@@ -22,8 +22,9 @@ function About() {
         <div className="bg-surface rounded-soft-lg shadow-soft p-8">
           <h3 className="text-xl font-bold text-text-main mb-3">Our Vision</h3>
           <p className="text-text-muted text-sm">
-            To be a leading institution recognized for excellence in teaching,
-            research, and innovation across every discipline we offer.
+             Welcome to Mahant Bachitttar Singh College of Engineering and Technology,
+             a spirituo-educational community inspired by Mahant Bachittar Singh Ji,
+             with an eye to provide learners with excellent erudition.
           </p>
         </div>
       </section>
