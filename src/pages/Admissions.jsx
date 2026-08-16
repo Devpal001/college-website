@@ -1,6 +1,10 @@
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Admissions() {
+  const [showEligibility, setShowEligibility] = useState(false);
+
   return (
     <div>
       {/* Header */}
@@ -20,7 +24,7 @@ function Admissions() {
           <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
             <div className="text-primary text-2xl font-bold mb-2">1</div>
             <h4 className="font-semibold text-text-main mb-2">Choose a Program</h4>
-            <p className="text-text-muted text-sm">Browse our 50+ programs and pick the one that fits you.</p>
+            <p className="text-text-muted text-sm leading-relaxed">Browse our 50+ programs and pick the one that fits you.</p>
           </div>
           <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
             <div className="text-primary text-2xl font-bold mb-2">2</div>
@@ -40,16 +44,28 @@ function Admissions() {
         </div>
       </section>
 
-      {/* Eligibility */}
+      {/* Eligibility - Accordion */}
       <section className="px-6 py-16 bg-bg-soft">
         <div className="max-w-3xl mx-auto bg-surface rounded-soft-lg shadow-soft p-8">
-          <h3 className="text-xl font-bold text-text-main mb-4">Eligibility Requirements</h3>
-          <ul className="text-text-muted text-sm space-y-2 list-disc list-inside">
-            <li>Completed higher secondary education (Grade 12 or equivalent)</li>
-            <li>Minimum aggregate score as per program requirements</li>
-            <li>Valid entrance exam scores (where applicable)</li>
-            <li>Statement of purpose and academic transcripts</li>
-          </ul>
+          <button
+            onClick={() => setShowEligibility(!showEligibility)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h3 className="text-xl font-bold text-text-main">Eligibility Requirements</h3>
+            <ChevronDown
+              className={`text-primary transition-transform duration-300 ${showEligibility ? 'rotate-180' : ''}`}
+              size={22}
+            />
+          </button>
+
+          {showEligibility && (
+            <ul className="text-text-muted text-sm space-y-2 list-disc list-inside mt-4 fade-in">
+              <li>Completed higher secondary education (Grade 12 or equivalent)</li>
+              <li>Minimum aggregate score as per program requirements</li>
+              <li>Valid entrance exam scores (where applicable)</li>
+              <li>Statement of purpose and academic transcripts</li>
+            </ul>
+          )}
         </div>
       </section>
 

@@ -25,6 +25,9 @@ function Home() {
       A spirituo-educational community inspired by Mahant Bachittar Singh Ji,
       committed to providing learners with excellent erudition.
     </p>
+    <p className="text-xs text-text-muted mt-4 font-normal tracking-wide">
+    A Constituent of Sant Manjit Singh Trust · Approved by AICTE New Delhi · Govt. of J&K · Affiliated to University of Jammu
+    </p>
     <div className="mt-8 flex gap-4 justify-center">
       <Link
         to="/admissions"
@@ -48,10 +51,10 @@ function Home() {
   <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-bg-soft shadow-inset flex items-center justify-center">
     <GraduationCap className="text-primary" size={26} />
   </div>
-  <h3 className="text-xl font-bold text-text-main mb-3">50+ Programs</h3>
-  <p className="text-text-muted text-sm">
-    From engineering to arts, find a program that fits your ambitions.
-  </p>
+  <h3 className="text-lg font-bold text-text-main mb-2 tracking-tight">50+ Programs</h3>
+<p className="text-text-muted text-sm leading-relaxed">
+  From engineering to arts, find a program that fits your ambitions.
+</p>
 </div>
 
 <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center hover:-translate-y-1 hover:shadow-soft-lg transition-all duration-200">

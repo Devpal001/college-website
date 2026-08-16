@@ -17,6 +17,9 @@
   --radius-soft: 1rem;
   --radius-soft-lg: 1.5rem;
 }
+html {
+  scroll-behavior: smooth;
+}
 .nav-link {
   position: relative;
 }

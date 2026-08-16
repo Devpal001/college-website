@@ -10,9 +10,11 @@ function Navbar() {
           MBSCET <span className="text-primary block text-xs font-medium">Jammu</span>
         </div>
 
-        <button className="bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition text-sm">
+        <Link
+        to="/admissions"
+         className="bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition text-sm">
           Apply Now
-        </button>
+        </Link>
       </div>
 
       {/* Logo, centered */}
@@ -35,6 +37,12 @@ function Navbar() {
             </li>
             <li className="nav-link hover:text-primary transition">
               <Link to="/contact">Contact</Link>
+            </li>
+            <li className="nav-link hover:text-primary transition">
+              <Link to="/departments">Departments</Link>
+            </li>
+            <li className="nav-link hover:text-primary transition">
+              <Link to="/campus-life">Campus Life</Link>
             </li>
           </ul>
         </nav>
