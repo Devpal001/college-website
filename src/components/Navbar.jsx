@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import logo from '../assets/mbslogo.png';
 import { useState, useEffect } from 'react';
@@ -33,6 +34,7 @@ const darkColors = {
 
 function Navbar() {
   const [darkMode, setDarkMode] = useState(false);
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
     const colors = darkMode ? darkColors : lightColors;
@@ -41,8 +43,23 @@ function Navbar() {
     });
   }, [darkMode]);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
-    // ...rest of your JSX stays exactly the same
     <div className="relative w-full pb-6">
       {/* Top row: brand text left, toggle + Apply Now right */}
       <div className="w-full flex items-center justify-between px-8 pt-6">
@@ -58,6 +75,22 @@ function Navbar() {
           >
             {darkMode ? <Sun className="text-primary" size={18} /> : <Moon className="text-primary" size={18} />}
           </button>
+
+          {session ? (
+            <button
+              onClick={handleLogout}
+              className="text-sm font-medium text-text-main hover:text-primary transition"
+            >
+              Logout
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="text-sm font-medium text-text-main hover:text-primary transition"
+            >
+              Login
+            </Link>
+          )}
 
           <Link
             to="/admissions"
