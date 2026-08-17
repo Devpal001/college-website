@@ -1,5 +1,6 @@
+
 body {
-  background-color: #F0F4F8;
+  background-color: var(--color-bg-soft);
 }
 .counter {
   font-size: 16px;

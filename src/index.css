@@ -10,12 +10,21 @@
   --color-text-muted: #637381;
   --color-navbar: #EEEEEE;
 
-  --shadow-soft: 8px 8px 16px rgba(163, 163, 163, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9);
-  --shadow-soft-lg: 10px 10px 20px rgba(163, 163, 163, 0.5), -10px -10px 20px rgba(255, 255, 255, 1);
-  --shadow-inset: inset 4px 4px 8px rgba(163, 163, 163, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
-
   --radius-soft: 1rem;
   --radius-soft-lg: 1.5rem;
+}
+html.dark {
+  --color-primary: #4A7FC9;
+  --color-primary-dark: #6B9BDB;
+  --color-secondary: #E8894A;
+  --color-bg-soft: #1A1D23;
+  --color-surface: #1A1D23;
+  --color-navbar: #22262E;
+  --color-text-main: #E8E9EB;
+  --color-text-muted: #9CA3AF;
+
+  --shadow-soft: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.03);
+  --shadow-soft-lg: 10px 10px 20px rgba(0, 0, 0, 0.5), -10px -10px 20px rgba(255, 255, 255, 1);
 }
 html {
   scroll-behavior: smooth;
