@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root {
+@theme {
   --color-primary: #353084;
   --color-primary-dark: #14204A;
   --color-secondary: #E8611C;
