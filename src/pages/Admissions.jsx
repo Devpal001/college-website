@@ -29,12 +29,12 @@ function Admissions() {
           <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
             <div className="text-primary text-2xl font-bold mb-2">2</div>
             <h4 className="font-semibold text-text-main mb-2">Submit Application</h4>
-            <p className="text-text-muted text-sm">Fill out the online form with your academic details.</p>
+            <p className="text-text-muted text-sm leading-relaxed">Fill out the online form with your academic details.</p>
           </div>
           <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
             <div className="text-primary text-2xl font-bold mb-2">3</div>
             <h4 className="font-semibold text-text-main mb-2">Entrance Review</h4>
-            <p className="text-text-muted text-sm">Our team reviews your application and test scores.</p>
+            <p className="text-text-muted text-sm leading-relaxed">Our team reviews your application and test scores.</p>
           </div>
           <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
             <div className="text-primary text-2xl font-bold mb-2">4</div>

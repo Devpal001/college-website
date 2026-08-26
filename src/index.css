@@ -12,7 +12,6 @@
 
   --radius-soft: 1rem;
   --radius-soft-lg: 1.5rem;
-  
 }
 html.dark {
   --color-primary: #4A7FC9;
@@ -29,6 +28,11 @@ html.dark {
 }
 html {
   scroll-behavior: smooth;
+}
+body {
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 .nav-link {
   position: relative;

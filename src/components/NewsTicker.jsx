@@ -1,0 +1,61 @@
+import { useState } from "react";
+import { Megaphone } from "lucide-react";
+
+const defaultNews = [
+  "Admissions open for 2026-27 batch — apply now!",
+  "MBSCET ranked among top engineering colleges in J&K",
+  "Annual Tech Fest 'Innovate' scheduled for March",
+  "Placement drive: 15+ companies visiting this semester",
+  "NBA accreditation renewed for CSE & ECE departments",
+];
+
+export default function NewsTicker({ items = defaultNews }) {
+  const [paused, setPaused] = useState(false);
+
+  // Duplicate items so the loop feels seamless
+  const looped = [...items, ...items];
+
+  return (
+    <div className="w-full flex items-stretch bg-navbar shadow-soft rounded-full overflow-hidden">
+      <div className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full shrink-0 z-10 shadow-soft">
+        <Megaphone size={16} />
+        <span className="text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
+          Latest
+        </span>
+      </div>
+
+      <div
+        className="relative flex-1 overflow-hidden"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        <div
+          className="flex whitespace-nowrap ticker-track"
+          style={{
+            animationPlayState: paused ? "paused" : "running",
+          }}
+        >
+          {looped.map((item, i) => (
+            <span
+              key={i}
+              className="text-sm text-text-main font-medium px-8 py-2.5 flex items-center gap-2"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        .ticker-track {
+          animation: ticker-scroll 30s linear infinite;
+        }
+        @keyframes ticker-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
+  );
+}
