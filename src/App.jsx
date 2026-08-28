@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PlaceholderPage from './pages/PlaceholderPage';
 import ComingSoon from './pages/ComingSoon';
+import Gallery from './components/Gallery';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/admissions" element={<Admissions />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/departments" element={<Departments />} />
+        <Route path="/gallery" element={<Gallery />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 

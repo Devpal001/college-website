@@ -1,8 +1,8 @@
 import { supabase } from '../lib/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/mbslogo.png';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Menu, X, Megaphone } from 'lucide-react';
+import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Phone } from 'lucide-react';
 
 const lightColors = {
   '--color-primary': '#353084',
@@ -37,6 +37,7 @@ const navLinks = [
   { label: 'About', href: '/about' },
   { label: 'Admissions', href: '/admissions' },
   { label: 'Departments', href: '/departments' },
+  { label: 'Gallery', href: '/gallery' },
   { label: 'Placements', href: '/placement' },
   { label: 'Contact', href: '/contact' },
 ];
@@ -97,6 +98,7 @@ function NewsTicker({ items = defaultNews }) {
 }
 
 function Navbar() {
+  const location = useLocation();
   const [darkMode, setDarkMode] = useState(false);
   const [session, setSession] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -207,7 +209,7 @@ function Navbar() {
       {/* Mobile slide-down menu */}
       {menuOpen && (
         <div className="md:hidden px-6 mt-2">
-          <nav className="bg-navbar shadow-soft rounded-soft-lg px-5 py-4">
+          <nav className="mobile-menu bg-navbar shadow-soft rounded-soft-lg px-5 py-4">
             <ul className="flex flex-col gap-3 text-text-main font-medium text-sm">
               {navLinks.map((link) => (
                 <li key={link.href}>
@@ -230,15 +232,6 @@ function Navbar() {
                   </Link>
                 )}
               </li>
-              <li>
-                <Link
-                  to="/admissions"
-                  onClick={() => setMenuOpen(false)}
-                  className="block text-center bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark transition"
-                >
-                  Apply Now
-                </Link>
-              </li>
             </ul>
           </nav>
         </div>
@@ -247,6 +240,44 @@ function Navbar() {
       {/* News ticker — sits below nav on all breakpoints */}
       <div className="px-6 md:px-8 mt-4">
         <NewsTicker />
+      </div>
+
+      {/* Mobile bottom navigation bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-navbar border-t border-black/10 z-50">
+        <div className="flex justify-around items-center py-3">
+          <Link
+            to="/"
+            className={`flex flex-col items-center gap-1 ${location.pathname === '/' ? 'text-primary' : 'text-text-muted'}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            <Home size={20} />
+            <span className="text-xs">Home</span>
+          </Link>
+          <Link
+            to="/departments"
+            className={`flex flex-col items-center gap-1 ${location.pathname === '/departments' ? 'text-primary' : 'text-text-muted'}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            <BookOpen size={20} />
+            <span className="text-xs">Departments</span>
+          </Link>
+          <Link
+            to="/gallery"
+            className={`flex flex-col items-center gap-1 ${location.pathname === '/gallery' ? 'text-primary' : 'text-text-muted'}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            <Megaphone size={20} />
+            <span className="text-xs">Gallery</span>
+          </Link>
+          <Link
+            to="/admissions"
+            className="flex flex-col items-center gap-1 text-primary"
+            onClick={() => setMenuOpen(false)}
+          >
+            <Building2 size={20} />
+            <span className="text-xs font-medium">Apply</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
