@@ -41,7 +41,7 @@ function PhotoCarousel() {
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        <div className="relative h-[360px]">
+        <div className="relative h-90">
           {images.map((img, index) => (
             <div
               key={index}
@@ -50,7 +50,7 @@ function PhotoCarousel() {
               }`}
             >
               <img src={img.src} alt={img.caption} className="w-full h-full object-cover" />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white text-sm px-5 py-4">
+              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent text-white text-sm px-5 py-4">
                 {img.caption}
               </div>
             </div>

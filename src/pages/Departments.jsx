@@ -36,7 +36,7 @@ function Departments() {
           return (
             <div
               key={dept.name}
-              className="group relative bg-surface shadow-soft hover:shadow-soft-lg rounded-soft-lg overflow-hidden transition-all duration-500 ease-out min-h-[220px]"
+              className="group relative bg-surface shadow-soft hover:shadow-soft-lg rounded-soft-lg overflow-hidden transition-all duration-500 ease-out min-h-55"
             >
               {/* Diagonal wedge panel */}
               <div className="dept-wedge absolute bg-primary" />
