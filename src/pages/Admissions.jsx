@@ -1,9 +1,42 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 function Admissions() {
   const [showEligibility, setShowEligibility] = useState(false);
+
+  const [form, setForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    course_applied: '',
+    message: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    const { error } = await supabase.from('admissions').insert([form]);
+
+    setSubmitting(false);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess(true);
+      setForm({ full_name: '', email: '', phone: '', course_applied: '', message: '' });
+    }
+  };
 
   return (
     <div>
@@ -41,6 +74,91 @@ function Admissions() {
             <h4 className="font-semibold text-text-main mb-2">Get Admitted</h4>
             <p className="text-text-muted text-sm">Receive your offer letter and confirm your seat.</p>
           </div>
+        </div>
+      </section>
+
+      {/* Application Form */}
+      <section className="px-6 py-16 bg-bg-soft">
+        <div className="max-w-2xl mx-auto bg-surface rounded-soft-lg shadow-soft p-8">
+          <h2 className="text-2xl font-bold text-text-main mb-6 text-center">Apply Now</h2>
+
+          {success ? (
+            <p className="text-green-600 text-center font-medium">
+              Application submitted! We'll be in touch soon.
+            </p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 text-left">
+              <div>
+                <label className="text-sm text-text-muted block mb-1">Full Name</label>
+                <input
+                  type="text"
+                  name="full_name"
+                  required
+                  value={form.full_name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-text-muted block mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={form.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-text-muted block mb-1">Phone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  required
+                  value={form.phone}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                />
+              </div>
+                            <div>
+                <label className="text-sm text-text-muted block mb-1">Course Applying For</label>
+                <select
+                  name="course_applied"
+                  required
+                  value={form.course_applied}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                >
+                  <option value="" disabled>Select a B.Tech branch</option>
+                  <option value="B.Tech Computer Science Engineering">B.Tech Computer Science Engineering</option>
+                  <option value="B.Tech Information Technology">B.Tech Information Technology</option>
+                  <option value="B.Tech Mechanical Engineering">B.Tech Mechanical Engineering</option>
+                  <option value="B.Tech Civil Engineering">B.Tech Civil Engineering</option>
+                  <option value="B.Tech Electrical Engineering">B.Tech Electrical Engineering</option>
+                  <option value="B.Tech Electronics & Communication Engineering">B.Tech Electronics & Communication Engineering</option>
+                </select>
+                <label className="text-sm text-text-muted block mb-1">Message (optional)</label>
+                <textarea
+                  name="message"
+                  rows={3}
+                  value={form.message}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                />
+              </div>
+
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition w-full"
+              >
+                {submitting ? 'Submitting...' : 'Submit Application'}
+              </button>
+            </form>
+          )}
         </div>
       </section>
 

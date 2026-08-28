@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { GraduationCap, Users, Building2 } from 'lucide-react';
 import campusImg from '../assets/admin_library-1.jpg';
+import PhotoCarousel from '../components/PhotoCarousel';
 function Home() {
   return (
     <div>
@@ -11,8 +12,7 @@ function Home() {
     backgroundImage: `url(${campusImg})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-  }}
->
+  }}>
   {/* Semi-transparent overlay */}
   <div className="absolute inset-0 bg-bg-soft opacity-70"></div>
 
@@ -44,7 +44,7 @@ function Home() {
     </div>
   </div>
 </section>
-
+<PhotoCarousel />
       {/* Highlights Section */}
       <section className="px-6 py-24 text-center bg-bg-soft fade-in">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center hover:-translate-y-1 hover:shadow-soft-lg transition-all duration-200">
