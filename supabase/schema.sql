@@ -256,7 +256,7 @@ CREATE TABLE announcements (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('exam', 'holiday', 'result', 'admission', 'scholarship', 'event', 'placement', 'deadline', 'timetable', 'academic', 'administrative', 'general', 'urgent')),
-  target_audience TEXT[] CHECK (array_length(target_audience) > 0),
+  target_audience TEXT[] CHECK (cardinality(target_audience) > 0),
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('critical', 'high', 'normal', 'low')),
   published_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

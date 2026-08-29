@@ -153,4 +153,4 @@ export const getImagesByCategory = (category) => {
 export const getCategoryName = (categoryId) => {
   const category = galleryCategories.find(cat => cat.id === categoryId);
   return category ? category.name : 'Unknown';
-};
+}; 
