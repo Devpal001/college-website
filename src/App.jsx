@@ -15,6 +15,8 @@ import { ProtectedRoute } from './hooks/useAuth';
 import StudentDashboard from './pages/StudentDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import Unauthorized from './pages/Unauthorized';
+import NewsPage from './pages/NewsPage';
+import AdminNews from './pages/AdminNews';
 
 function App() {
   return (
@@ -30,6 +32,15 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/news" element={<NewsPage />} />
+        <Route
+          path="/admin/news"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+              <AdminNews />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/student-dashboard"
           element={

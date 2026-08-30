@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Megaphone } from "lucide-react";
+import { api } from "../lib/api";
 
 const defaultNews = [
   "Admissions open for 2026-27 batch — apply now!",
@@ -9,11 +10,35 @@ const defaultNews = [
   "NBA accreditation renewed for CSE & ECE departments",
 ];
 
-export default function NewsTicker({ items = defaultNews }) {
+// Phase 4: ticker now renders live published news from the API.
+// Falls back to the static defaults while loading, on error,
+// or when no news has been published yet.
+export default function NewsTicker({ items }) {
+  const [titles, setTitles] = useState(items || defaultNews);
   const [paused, setPaused] = useState(false);
 
+  useEffect(() => {
+    if (items) {
+      setTitles(items);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get("/api/news?limit=8");
+        const live = (res?.data || []).map((n) => n.title).filter(Boolean);
+        if (!cancelled && live.length > 0) setTitles(live);
+      } catch (_) {
+        // API unreachable or empty — keep defaults
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
   // Duplicate items so the loop feels seamless
-  const looped = [...items, ...items];
+  const looped = [...titles, ...titles];
 
   return (
     <div className="w-full flex items-stretch bg-navbar shadow-soft rounded-full overflow-hidden">

@@ -9,6 +9,7 @@ import profileRouter from './routes/profile.js';
 import recordsRouter from './routes/records.js';
 import studentsRouter from './routes/students.js';
 import teachersRouter from './routes/teachers.js';
+import newsRouter from './routes/news.js';
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
@@ -75,18 +76,25 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================
-// MODULAR API ROUTERS — Phase 3 (Academic Platform)
+// MODULAR API ROUTERS — Phase 3 + Phase 4
+// The news router is mounted FIRST because its public
+// feed/source-listing endpoints must stay reachable without
+// authentication; all later routers apply a global
+// authRequired guard at mount time. The news router guards
+// its own /admin and write endpoints internally.
 // Mounted before the legacy inline handlers below so the
 // authenticated, service-role API takes precedence for
 // attendance, marks, timetable, student/teacher dashboards,
-// profile, and academic reference data.
+// profile, and academic reference data (and closes the
+// unauthenticated legacy /verify and /pending-review holes).
 // ============================================
+app.use('/api/news', newsRouter);
 app.use('/api', academicsRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api', recordsRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/teachers', teachersRouter);
-console.log('✅ Modular API routers mounted (academics, profile, records, students, teachers)');
+console.log('✅ Modular API routers mounted (news, academics, profile, records, students, teachers)');
 
 // ============================================
 // SUPABASE
