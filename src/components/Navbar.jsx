@@ -4,7 +4,7 @@ import logo from '../assets/mbslogo.png';
 import NewsTicker from './NewsTicker';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Phone, Bot } from 'lucide-react';
+import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
 const lightColors = {
   '--color-primary': '#353084',
@@ -73,7 +73,7 @@ function Navbar() {
             .eq('id', session.user.id)
             .single();
           setRole(profile?.role || null);
-        } catch (_) {
+        } catch {
           setRole(null);
         }
       } else {
@@ -92,7 +92,7 @@ function Navbar() {
             .eq('id', session.user.id)
             .single();
           setRole(profile?.role || null);
-        } catch (_) {
+        } catch {
           setRole(null);
         }
       } else {

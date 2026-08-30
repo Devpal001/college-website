@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, ZoomIn, Filter } from 'lucide-react';
-import { galleryImages, galleryCategories, getImagesByCategory } from '../data/gallery';
+import { galleryCategories, getImagesByCategory } from '../data/gallery';
 
 export default function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState('all');

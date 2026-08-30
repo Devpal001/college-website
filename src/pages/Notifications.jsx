@@ -1,151 +1,246 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Bell, Check, X, Settings, Filter } from 'lucide-react';
 import { api } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const PREFERENCE_OPTIONS = [
+  ['college_announcements', 'College Announcements'],
+  ['exam_updates', 'Exam Updates'],
+  ['attendance_alerts', 'Attendance Alerts'],
+  ['timetable_changes', 'Timetable Changes'],
+  ['events', 'Events'],
+  ['placement_news', 'Placement News'],
+  ['scholarships', 'Scholarships'],
+  ['ai_discoveries', 'AI Discoveries'],
+];
+
+function getPriorityColor(priority) {
+  switch (priority) {
+    case 'critical':
+      return 'bg-red-500';
+    case 'high':
+      return 'bg-orange-500';
+    case 'normal':
+      return 'bg-blue-500';
+    case 'low':
+      return 'bg-gray-500';
+    default:
+      return 'bg-blue-500';
+  }
+}
+
+function getTypeIcon(type) {
+  switch (type) {
+    case 'announcement':
+      return '📢';
+    case 'attendance':
+      return '📅';
+    case 'marks':
+      return '📊';
+    case 'timetable':
+      return '🕐';
+    case 'exam':
+      return '📝';
+    case 'event':
+      return '🎉';
+    case 'ai_news':
+      return '🤖';
+    default:
+      return '🔔';
+  }
+}
+
+function formatTime(timestamp) {
+  if (!timestamp) return '';
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+
+  if (diffMs < 0) return date.toLocaleDateString();
+
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString();
+}
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [preferences, setPreferences] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, unread, read
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all');
   const [showPreferences, setShowPreferences] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
 
-  useEffect(() => {
-    fetchNotifications();
-    fetchPreferences();
-    fetchUnreadCount();
-  }, [filter]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
+
       const unreadOnly = filter === 'unread' ? 'true' : 'false';
-      const response = await api.get(`/notifications/me?unreadOnly=${unreadOnly}&limit=50`);
-      setNotifications(response.data || []);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+
+      const response = await api.get(
+        `/notifications/me?unreadOnly=${unreadOnly}&limit=50`
+      );
+
+      let data = Array.isArray(response?.data) ? response.data : [];
+
+      // The API supports unreadOnly, but not necessarily a read-only
+      // query. Filter locally when the user selects "Read".
+      if (filter === 'read') {
+        data = data.filter((notification) => notification.read);
+      }
+
+      setNotifications(data);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(err?.message || 'Failed to load notifications');
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
 
-  const fetchPreferences = async () => {
+  const fetchPreferences = useCallback(async () => {
     try {
       const response = await api.get('/notifications/me/preferences');
-      setPreferences(response);
-    } catch (error) {
-      console.error('Error fetching preferences:', error);
+      setPreferences(response || {});
+    } catch (err) {
+      console.error('Error fetching preferences:', err);
     }
-  };
+  }, []);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await api.get('/notifications/me/unread-count');
-      setUnreadCount(response.count || 0);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
+      setUnreadCount(Number(response?.count) || 0);
+    } catch (err) {
+      console.error('Error fetching unread count:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    fetchPreferences();
+    fetchUnreadCount();
+  }, [fetchPreferences, fetchUnreadCount]);
 
   const markAsRead = async (notificationId) => {
     try {
       await api.put(`/notifications/${notificationId}/read`);
-      setNotifications(notifications.map(n => 
-        n.id === notificationId ? { ...n, read: true } : n
-      ));
-      setUnreadCount(Math.max(0, unreadCount - 1));
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+
+      setUnreadCount((current) => Math.max(0, current - 1));
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
     }
   };
 
   const markAllAsRead = async () => {
     try {
       await api.put('/notifications/me/read-all');
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
+
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          read: true,
+        }))
+      );
+
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Error marking all as read:', error);
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
     }
   };
 
   const deleteNotification = async (notificationId) => {
+    const notification = notifications.find(
+      (item) => item.id === notificationId
+    );
+
+    if (!notification) return;
+
     try {
       await api.delete(`/notifications/${notificationId}`);
-      setNotifications(notifications.filter(n => n.id !== notificationId));
-      if (!notifications.find(n => n.id === notificationId)?.read) {
-        setUnreadCount(Math.max(0, unreadCount - 1));
+
+      setNotifications((current) =>
+        current.filter((item) => item.id !== notificationId)
+      );
+
+      if (!notification.read) {
+        setUnreadCount((current) => Math.max(0, current - 1));
       }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
+    } catch (err) {
+      console.error('Error deleting notification:', err);
     }
   };
 
-  const updatePreferences = async (newPreferences) => {
+  const updatePreferences = async () => {
+    if (!preferences) return;
+
     try {
-      const response = await api.put('/notifications/me/preferences', newPreferences);
-      setPreferences(response);
+      setSavingPreferences(true);
+
+      const response = await api.put(
+        '/notifications/me/preferences',
+        preferences
+      );
+
+      setPreferences(response || preferences);
       setShowPreferences(false);
-    } catch (error) {
-      console.error('Error updating preferences:', error);
+    } catch (err) {
+      console.error('Error updating preferences:', err);
+    } finally {
+      setSavingPreferences(false);
     }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'normal': return 'bg-blue-500';
-      case 'low': return 'bg-gray-500';
-      default: return 'bg-blue-500';
-    }
-  };
-
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'announcement': return '📢';
-      case 'attendance': return '📅';
-      case 'marks': return '📊';
-      case 'timetable': return '🕐';
-      case 'exam': return '📝';
-      case 'event': return '🎉';
-      case 'ai_news': return '🤖';
-      default: return '🔔';
-    }
-  };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
   };
 
   return (
     <div className="min-h-screen bg-bg-soft py-8">
       <div className="max-w-4xl mx-auto px-6">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-text-main mb-2">Notifications</h1>
+            <h1 className="text-3xl font-bold text-text-main mb-2">
+              Notifications
+            </h1>
+
             <p className="text-text-muted">
-              {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+              {unreadCount > 0
+                ? `${unreadCount} unread notifications`
+                : 'All caught up!'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-3 flex-wrap justify-end">
             <div className="flex items-center gap-2 bg-surface rounded-soft px-3 py-2">
               <Filter className="w-4 h-4 text-text-muted" />
+
               <select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(event) => setFilter(event.target.value)}
                 className="bg-transparent text-sm text-text-main outline-none"
               >
                 <option value="all">All</option>
@@ -153,8 +248,10 @@ export default function Notifications() {
                 <option value="read">Read</option>
               </select>
             </div>
+
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-soft hover:bg-primary-dark transition-colors"
               >
@@ -162,7 +259,9 @@ export default function Notifications() {
                 Mark all as read
               </button>
             )}
+
             <button
+              type="button"
               onClick={() => setShowPreferences(true)}
               className="p-2 bg-surface rounded-soft hover:bg-bg-soft transition-colors"
               title="Notification settings"
@@ -172,6 +271,12 @@ export default function Notifications() {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 text-red-700 rounded-soft p-4 mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-12">
             <LoadingSpinner />
@@ -179,11 +284,17 @@ export default function Notifications() {
         ) : notifications.length === 0 ? (
           <div className="bg-surface rounded-soft-lg shadow-soft p-12 text-center">
             <Bell className="w-16 h-16 mx-auto mb-4 text-text-muted opacity-50" />
-            <h3 className="text-xl font-semibold text-text-main mb-2">No notifications</h3>
+
+            <h3 className="text-xl font-semibold text-text-main mb-2">
+              No notifications
+            </h3>
+
             <p className="text-text-muted">
-              {filter === 'unread' 
-                ? "You're all caught up!" 
-                : "You don't have any notifications yet."}
+              {filter === 'unread'
+                ? "You're all caught up!"
+                : filter === 'read'
+                  ? 'You have no read notifications.'
+                  : "You don't have any notifications yet."}
             </p>
           </div>
         ) : (
@@ -192,7 +303,9 @@ export default function Notifications() {
               <div
                 key={notification.id}
                 className={`bg-surface rounded-soft-lg shadow-soft p-4 hover:shadow-md transition-shadow ${
-                  !notification.read ? 'border-l-4 border-primary' : ''
+                  !notification.read
+                    ? 'border-l-4 border-primary'
+                    : ''
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -201,34 +314,54 @@ export default function Notifications() {
                       {getTypeIcon(notification.type)}
                     </span>
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="font-semibold text-text-main text-lg mb-1">
-                          {notification.title}
+                          {notification.title || 'Notification'}
                         </h3>
-                        <p className="text-text-muted mb-2">
-                          {notification.message}
-                        </p>
-                        <div className="flex items-center gap-3 text-sm text-text-muted">
-                          <span>{formatTime(notification.created_at)}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(notification.priority)} text-white`}>
-                            {notification.priority}
+
+                        {notification.message && (
+                          <p className="text-text-muted mb-2">
+                            {notification.message}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-3 text-sm text-text-muted flex-wrap">
+                          <span>
+                            {formatTime(notification.created_at)}
+                          </span>
+
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(
+                              notification.priority
+                            )} text-white`}
+                          >
+                            {notification.priority || 'normal'}
                           </span>
                         </div>
                       </div>
+
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!notification.read && (
                           <button
-                            onClick={() => markAsRead(notification.id)}
+                            type="button"
+                            onClick={() =>
+                              markAsRead(notification.id)
+                            }
                             className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                             title="Mark as read"
                           >
                             <Check className="w-5 h-5 text-text-muted hover:text-primary" />
                           </button>
                         )}
+
                         <button
-                          onClick={() => deleteNotification(notification.id)}
+                          type="button"
+                          onClick={() =>
+                            deleteNotification(notification.id)
+                          }
                           className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                           title="Delete"
                         >
@@ -243,63 +376,74 @@ export default function Notifications() {
           </div>
         )}
 
-        {/* Preferences Modal */}
         {showPreferences && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-surface rounded-soft-lg shadow-soft w-full max-w-md max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-black/5 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-text-main">Notification Preferences</h2>
+                <h2 className="text-xl font-semibold text-text-main">
+                  Notification Preferences
+                </h2>
+
                 <button
+                  type="button"
                   onClick={() => setShowPreferences(false)}
                   className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                 >
                   <X className="w-5 h-5 text-text-muted" />
                 </button>
               </div>
+
               <div className="p-6 space-y-4">
                 {preferences && (
                   <>
-                    {[
-                      { key: 'college_announcements', label: 'College Announcements' },
-                      { key: 'exam_updates', label: 'Exam Updates' },
-                      { key: 'attendance_alerts', label: 'Attendance Alerts' },
-                      { key: 'timetable_changes', label: 'Timetable Changes' },
-                      { key: 'events', label: 'Events' },
-                      { key: 'placement_news', label: 'Placement News' },
-                      { key: 'scholarships', label: 'Scholarships' },
-                      { key: 'ai_discoveries', label: 'AI Discoveries' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-text-main">{label}</span>
+                    {PREFERENCE_OPTIONS.map(([key, label]) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-text-main">
+                          {label}
+                        </span>
+
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={preferences[key]}
-                            onChange={(e) => setPreferences({
-                              ...preferences,
-                              [key]: e.target.checked
-                            })}
+                            checked={Boolean(preferences[key])}
+                            onChange={(event) =>
+                              setPreferences((current) => ({
+                                ...current,
+                                [key]: event.target.checked,
+                              }))
+                            }
                             className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                         </label>
                       </div>
                     ))}
                   </>
                 )}
               </div>
+
               <div className="p-6 border-t border-black/5 flex justify-end gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowPreferences(false)}
                   className="px-4 py-2 text-text-main hover:bg-bg-soft rounded-soft transition-colors"
                 >
                   Cancel
                 </button>
+
                 <button
-                  onClick={() => updatePreferences(preferences)}
-                  className="px-4 py-2 bg-primary text-white rounded-soft hover:bg-primary-dark transition-colors"
+                  type="button"
+                  onClick={updatePreferences}
+                  disabled={!preferences || savingPreferences}
+                  className="px-4 py-2 bg-primary text-white rounded-soft hover:bg-primary-dark disabled:opacity-60 transition-colors"
                 >
-                  Save Preferences
+                  {savingPreferences
+                    ? 'Saving...'
+                    : 'Save Preferences'}
                 </button>
               </div>
             </div>

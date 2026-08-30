@@ -12,7 +12,6 @@ import {
   Plus,
   RefreshCw,
   Check,
-  X,
 } from 'lucide-react';
 
 const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -172,7 +171,7 @@ function TeacherDashboard() {
         studentId: s.id,
         status: attStatuses[s.id] || 'present',
       }));
-      const res = await api.post('/attendance', {
+      await api.post('/attendance', {
         subjectId: selectedAttClass.subject_id,
         sectionId: selectedAttClass.sections.id,
         date: attDate,
@@ -220,7 +219,7 @@ function TeacherDashboard() {
           : 0,
         remarks: null,
       }));
-      const res = await api.post('/marks', { assessmentId: markAssessment, records });
+      await api.post('/marks', { assessmentId: markAssessment, records });
       setMarkMessage({ type: 'success', text: `Marks saved for ${records.length} students.` });
     } catch (e) {
       setMarkMessage({ type: 'error', text: e.message });
@@ -270,7 +269,7 @@ function TeacherDashboard() {
       try {
         const a = await api.get('/teachers/me/assessments');
         setAssessments(a || []);
-      } catch (_) {
+      } catch {
         /* non-fatal */
       }
     } catch (err) {

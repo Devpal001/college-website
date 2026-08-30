@@ -146,7 +146,7 @@ function ItemsTab() {
       try {
         const res = await api.get('/api/news/sources');
         setSources(res?.data || []);
-      } catch (_) {
+      } catch {
         setSources([]);
       }
     })();

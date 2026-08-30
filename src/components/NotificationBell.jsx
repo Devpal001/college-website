@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -8,19 +8,7 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-    fetchUnreadCount();
-    
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications/me?limit=5');
       setNotifications(response.data || []);
@@ -29,16 +17,28 @@ export default function NotificationBell() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await api.get('/notifications/me/unread-count');
       setUnreadCount(response.count || 0);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchNotifications, fetchUnreadCount]);
 
   const markAsRead = async (notificationId) => {
     try {

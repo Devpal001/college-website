@@ -14,21 +14,21 @@ const defaultNews = [
 // Falls back to the static defaults while loading, on error,
 // or when no news has been published yet.
 export default function NewsTicker({ items }) {
-  const [titles, setTitles] = useState(items || defaultNews);
+  const [fetchedTitles, setFetchedTitles] = useState(defaultNews);
   const [paused, setPaused] = useState(false);
 
+  // Explicitly passed-in titles win; otherwise use fetched (or default) ones.
+  const titles = items || fetchedTitles;
+
   useEffect(() => {
-    if (items) {
-      setTitles(items);
-      return;
-    }
+    if (items) return;
     let cancelled = false;
     (async () => {
       try {
         const res = await api.get("/api/news?limit=8");
         const live = (res?.data || []).map((n) => n.title).filter(Boolean);
-        if (!cancelled && live.length > 0) setTitles(live);
-      } catch (_) {
+        if (!cancelled && live.length > 0) setFetchedTitles(live);
+      } catch {
         // API unreachable or empty — keep defaults
       }
     })();

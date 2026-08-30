@@ -1027,7 +1027,7 @@ app.put(
 
 // Global Express error handler
 app.use(
-  (err, req, res, next) => {
+  (err, req, res, _next) => {
     console.error(
       'Unhandled server error:',
       err

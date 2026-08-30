@@ -33,7 +33,7 @@ async function apiFetch(path, options = {}) {
     try {
       const body = await res.json();
       if (body?.error) message = body.error;
-    } catch (_) {
+    } catch {
       // not JSON — keep default message
     }
     const err = new Error(message);

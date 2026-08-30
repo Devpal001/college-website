@@ -269,7 +269,7 @@ async function get_teacher_classes(userId) {
  */
 router.post('/chat', authRequired, async (req, res) => {
   try {
-    const { message, conversationHistory = [] } = req.body;
+    const { message } = req.body;
     const userId = req.profile.id;
     const userRole = req.profile.role;
 

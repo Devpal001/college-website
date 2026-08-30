@@ -1,46 +1,41 @@
-import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, X, Sparkles, Bot } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Send, X, Sparkles, Bot } from 'lucide-react';
 import { api } from '../lib/api';
 
 export default function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
+  // The greeting is the initial message of every conversation.
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: "Hello! I'm your college AI assistant. I can help you with information about your attendance, marks, timetable, announcements, and college updates. How can I help you today?"
+    }
+  ]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchSuggestions();
-      // Add welcome message if no messages
-      if (messages.length === 0) {
-        setMessages([
-          {
-            role: 'assistant',
-            content: "Hello! I'm your college AI assistant. I can help you with information about your attendance, marks, timetable, announcements, and college updates. How can I help you today?"
-          }
-        ]);
-      }
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = useCallback(async () => {
     try {
       const response = await api.get('/assistant/suggestions');
       setSuggestions(response.suggestions || []);
     } catch (error) {
       console.error('Error fetching suggestions:', error);
     }
-  };
+  }, []);
+
+  // Refresh suggested questions every time the chat opens.
+  useEffect(() => {
+    if (isOpen) {
+      fetchSuggestions();
+    }
+  }, [isOpen, fetchSuggestions]);
+
+  // Keep the latest message in view.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSendMessage = async (message) => {
     if (!message.trim()) return;

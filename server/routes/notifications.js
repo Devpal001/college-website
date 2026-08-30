@@ -33,22 +33,6 @@ async function createNotificationForUsers(userIds, notificationData) {
 }
 
 /**
- * Create notification for users by role
- */
-async function createNotificationForRole(role, notificationData) {
-  const { data: profiles, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('role', role)
-    .eq('is_active', true);
-
-  if (error) throw error;
-
-  const userIds = profiles.map(p => p.id);
-  return await createNotificationForUsers(userIds, notificationData);
-}
-
-/**
  * Create notification for target audience (from announcements)
  */
 async function createNotificationForAudience(targetAudience, notificationData) {
@@ -543,7 +527,7 @@ router.post('/trigger/announcement', authRequired, requireRole('admin', 'super_a
  */
 router.post('/trigger/news', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
   try {
-    const { newsId, title, category, targetAudience } = req.body;
+    const { newsId, title, category } = req.body;
 
     // Filter users who want AI discoveries
     const { data: profiles, error: profilesError } = await supabase
