@@ -1,10 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+// Re-use the single shared Supabase client from lib/supabase.js.
+// Creating a second client with the same storage key caused the
+// "Multiple GoTrueClient instances detected" console warning and
+// could make auth-state updates unreliable.
+import { supabase } from './supabase';
 
-// Initialize Supabase client with anon key (client-side)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export { supabase };
 
 // ============================================
 // AUTHENTICATION HELPERS

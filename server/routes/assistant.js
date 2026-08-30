@@ -8,6 +8,54 @@ const router = express.Router();
 // ============================================
 // AI ASSISTANT CONTROLLED TOOLS
 // ============================================
+// Every tool is scoped to the authenticated user (req.profile)
+// and returns either a data object/array or a graceful
+// { error: '...' } result — tools must never crash the chat.
+
+/**
+ * Helper: get the student row for a profile id.
+ * Uses maybeSingle() so a missing student record comes back
+ * as null (handled gracefully) instead of a thrown error.
+ */
+async function getStudentByProfile(userId) {
+  const { data: student, error } = await supabase
+    .from('students')
+    .select('id, current_section')
+    .eq('profile_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return student;
+}
+
+/**
+ * Helper: resolve the student's active section id.
+ * The section lives on the ACTIVE enrollments row (same
+ * convention as server/routes/students.js). Falls back to
+ * students.current_section when it stores a section UUID.
+ */
+async function getStudentSectionId(student) {
+  if (!student) return null;
+
+  const { data: enrollment, error } = await supabase
+    .from('enrollments')
+    .select('section_id')
+    .eq('student_id', student.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (enrollment?.section_id) return enrollment.section_id;
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (student.current_section && UUID_RE.test(student.current_section)) {
+    return student.current_section;
+  }
+
+  return null;
+}
 
 /**
  * Tool: get_user_profile
@@ -29,14 +77,7 @@ async function get_user_profile(userId) {
  * Get student's attendance overview
  */
 async function get_student_attendance(userId, subjectId = null) {
-  // First get student data
-  const { data: student, error: studentError } = await supabase
-    .from('students')
-    .select('id')
-    .eq('profile_id', userId)
-    .single();
-
-  if (studentError) throw studentError;
+  const student = await getStudentByProfile(userId);
   if (!student) return { error: 'Student data not found' };
 
   let query = supabase
@@ -52,9 +93,10 @@ async function get_student_attendance(userId, subjectId = null) {
 
   if (error) throw error;
 
-  // Calculate attendance percentage
+  // Calculate attendance percentage.
+  // 'late' still counts as having attended the class.
   const total = data.length;
-  const present = data.filter(a => a.status === 'present').length;
+  const present = data.filter(a => a.status === 'present' || a.status === 'late').length;
   const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
 
   return {
@@ -71,14 +113,7 @@ async function get_student_attendance(userId, subjectId = null) {
  * Get student's marks overview
  */
 async function get_student_marks(userId, semesterId = null) {
-  // First get student data
-  const { data: student, error: studentError } = await supabase
-    .from('students')
-    .select('id')
-    .eq('profile_id', userId)
-    .single();
-
-  if (studentError) throw studentError;
+  const student = await getStudentByProfile(userId);
   if (!student) return { error: 'Student data not found' };
 
   let query = supabase
@@ -94,10 +129,16 @@ async function get_student_marks(userId, semesterId = null) {
 
   if (error) throw error;
 
-  // Calculate average
-  const total = data.length;
-  const average = total > 0 
-    ? Math.round(data.reduce((sum, m) => sum + (m.marks_obtained / m.marks_max * 100), 0) / total)
+  // Calculate average — guard against missing/zero marks_max
+  // so the response never contains NaN or Infinity.
+  const valid = data.filter(
+    m => Number.isFinite(Number(m.marks_obtained)) &&
+         Number.isFinite(Number(m.marks_max)) &&
+         Number(m.marks_max) > 0
+  );
+  const total = valid.length;
+  const average = total > 0
+    ? Math.round(valid.reduce((sum, m) => sum + (Number(m.marks_obtained) / Number(m.marks_max)) * 100, 0) / total)
     : 0;
 
   return {
@@ -121,19 +162,22 @@ async function get_timetable(userId) {
   if (profileError) throw profileError;
 
   if (profile.role === 'student') {
-    // Get student's section
-    const { data: student } = await supabase
-      .from('students')
-      .select('section_id')
-      .eq('profile_id', userId)
-      .single();
-
+    const student = await getStudentByProfile(userId);
     if (!student) return { error: 'Student data not found' };
+
+    const sectionId = await getStudentSectionId(student);
+    if (!sectionId) {
+      return {
+        role: 'student',
+        timetable: [],
+        info: 'no active section enrollment found'
+      };
+    }
 
     const { data, error } = await supabase
       .from('timetable')
       .select('*, subjects(*), teachers(*), rooms(*)')
-      .eq('section_id', student.section_id)
+      .eq('section_id', sectionId)
       .order('day_of_week')
       .order('start_time');
 
@@ -142,23 +186,26 @@ async function get_timetable(userId) {
 
   } else if (profile.role === 'teacher') {
     // Get teacher's assigned classes
-    const { data: teacher } = await supabase
+    const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
       .select('id')
       .eq('profile_id', userId)
-      .single();
+      .maybeSingle();
 
+    if (teacherError) throw teacherError;
     if (!teacher) return { error: 'Teacher data not found' };
 
-    const { data: assignments } = await supabase
+    const { data: assignments, error: assignmentsError } = await supabase
       .from('teacher_subjects')
       .select('section_id, subjects(*), semesters(*)')
       .eq('teacher_id', teacher.id)
       .eq('is_active', true);
 
+    if (assignmentsError) throw assignmentsError;
+
     // Get timetable for each section
-    const sectionIds = assignments.map(a => a.section_id).filter(Boolean);
-    
+    const sectionIds = (assignments || []).map(a => a.section_id).filter(Boolean);
+
     if (sectionIds.length === 0) {
       return { role: 'teacher', timetable: [] };
     }
@@ -191,20 +238,23 @@ async function get_announcements(userId) {
 
   if (profileError) throw profileError;
 
+  // Keep announcements that never expire (expires_at IS NULL)
+  // as well as those that have not expired yet.
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('announcements')
     .select('*')
     .eq('is_active', true)
-    .gte('expires_at', new Date().toISOString() || '9999-12-31')
+    .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
     .order('published_at', { ascending: false })
     .limit(10);
 
   if (error) throw error;
 
   // Filter by target audience
-  const relevant = data.filter(announcement => {
+  const relevant = (data || []).filter(announcement => {
     const targets = announcement.target_audience || [];
-    return targets.includes('all') || 
+    return targets.includes('all') ||
            targets.includes(profile.role) ||
            targets.includes(profile.id);
   });
@@ -221,7 +271,7 @@ async function get_published_news(category = null, limit = 5) {
     .from('news_items')
     .select('*, news_sources(*)')
     .eq('is_published', true)
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false, nullsFirst: false });
 
   if (category) {
     query = query.eq('category', category);
@@ -244,7 +294,7 @@ async function get_teacher_classes(userId) {
     .from('teachers')
     .select('id')
     .eq('profile_id', userId)
-    .single();
+    .maybeSingle();
 
   if (teacherError) throw teacherError;
   if (!teacher) return { error: 'Teacher data not found' };
@@ -265,7 +315,13 @@ async function get_teacher_classes(userId) {
 
 /**
  * POST /api/assistant/chat
- * Main chat endpoint with controlled tool access
+ * Main chat endpoint with controlled tool access.
+ *
+ * Request:  { message: string, conversationHistory?: [{role, content}] }
+ * Response: { response: string, sources: [], tools_used: [], classification }
+ *
+ * Never returns a hard error — any tool failure degrades into a
+ * friendly message so the UI never has to show a generic error.
  */
 router.post('/chat', authRequired, async (req, res) => {
   try {
@@ -273,98 +329,166 @@ router.post('/chat', authRequired, async (req, res) => {
     const userId = req.profile.id;
     const userRole = req.profile.role;
 
-    if (!message) {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Classify the user's request to determine which tools to use
+    // Classify the user's request to determine which tools to use.
+    // classifyContent never throws; it returns a space-separated
+    // string of matched intents (e.g. 'attendance marks') or 'general'.
     const classification = await classifyContent(message);
-    
+
     let toolResults = {};
     let response = '';
     let sources = [];
 
+    const isStudent = userRole === 'student';
+    const isTeacher = userRole === 'teacher';
+
     // Execute tools based on classification and user role
-    if (classification.includes('attendance') && userRole === 'student') {
-      toolResults.attendance = await get_student_attendance(userId);
-      response = `Your overall attendance is ${toolResults.attendance.percentage}%. You've attended ${toolResults.attendance.present} out of ${toolResults.attendance.total} classes.`;
-    } 
-    else if (classification.includes('marks') && userRole === 'student') {
-      toolResults.marks = await get_student_marks(userId);
-      response = `Your average marks are ${toolResults.marks.average}%. You have marks for ${toolResults.marks.total} assessments.`;
+    if (classification.includes('attendance')) {
+      if (!isStudent) {
+        response = 'Attendance records are only available for student accounts.';
+      } else {
+        const attendance = await get_student_attendance(userId);
+        toolResults.attendance = attendance;
+
+        if (attendance?.error) {
+          response = attendance.error;
+        } else if (!attendance || attendance.total === 0) {
+          response = "I couldn't find any attendance records for you yet. They will appear here as soon as your teachers start recording attendance.";
+        } else {
+          response = `Your overall attendance is ${attendance.percentage}%. You've attended ${attendance.present} out of ${attendance.total} classes.`;
+        }
+      }
     }
-    else if (classification.includes('timetable') || classification.includes('class') || classification.includes('schedule')) {
-      toolResults.timetable = await get_timetable(userId);
-      
-      if (toolResults.timetable.timetable && toolResults.timetable.timetable.length > 0) {
+    else if (classification.includes('marks')) {
+      if (!isStudent) {
+        response = 'Marks are only available for student accounts.';
+      } else {
+        const marks = await get_student_marks(userId);
+        toolResults.marks = marks;
+
+        if (marks?.error) {
+          response = marks.error;
+        } else if (!marks || marks.total === 0) {
+          response = "I couldn't find any recorded marks for you yet. They will appear here as soon as your teachers publish assessment results.";
+        } else {
+          response = `Your average score is ${marks.average}% across ${marks.total} assessed item${marks.total === 1 ? '' : 's'}.`;
+
+          const recent = (marks.details || [])
+            .filter(m => m.assessments)
+            .slice(-3)
+            .map(m => {
+              const max = Number(m.marks_max) || 0;
+              const pct = max > 0 ? Math.round((Number(m.marks_obtained) / max) * 100) : '—';
+              return `${m.assessments.title} (${pct}%)`;
+            });
+          if (recent.length > 0) {
+            response += ` Recent results: ${recent.join(', ')}.`;
+          }
+        }
+      }
+    }
+    else if (classification.includes('timetable') || classification.includes('schedule') || classification.includes('class')) {
+      const timetable = await get_timetable(userId);
+      toolResults.timetable = timetable;
+
+      if (timetable?.error) {
+        response = timetable.error;
+      } else if (!timetable || !Array.isArray(timetable.timetable) || timetable.timetable.length === 0) {
+        response = timetable?.info
+          ? `No timetable information available yet (${timetable.info}).`
+          : 'No timetable information available.';
+      } else {
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        const todayClasses = toolResults.timetable.timetable.filter(t => t.day_of_week === today);
-        
+        const todayClasses = timetable.timetable.filter(t => t.day_of_week === today);
+
         if (todayClasses.length > 0) {
           const nextClass = todayClasses.sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
-          response = `Today you have ${todayClasses.length} classes. Your next class is ${nextClass.subjects?.name || 'Subject'} at ${nextClass.start_time} in ${nextClass.rooms?.room_number || 'Room ' + nextClass.room_id}.`;
+          response = `Today you have ${todayClasses.length} class${todayClasses.length === 1 ? '' : 'es'}. Your next class is ${nextClass.subjects?.name || 'Subject'} at ${nextClass.start_time} in ${nextClass.rooms?.room_number || (nextClass.room_id ? 'Room ' + nextClass.room_id : 'your usual room')}.`;
         } else {
           response = "You don't have any classes scheduled for today.";
         }
-      } else {
-        response = "No timetable information available.";
       }
     }
     else if (classification.includes('announcement') || classification.includes('news') || classification.includes('update')) {
-      toolResults.announcements = await get_announcements(userId);
+      const announcements = await get_announcements(userId);
+      toolResults.announcements = announcements;
       toolResults.news = await get_published_news(null, 3);
-      
-      const announcements = toolResults.announcements.slice(0, 3);
-      const news = toolResults.news.slice(0, 2);
-      
-      let announcementText = announcements.length > 0 
-        ? `Recent announcements: ${announcements.map(a => a.title).join(', ')}.`
+
+      const recentAnnouncements = (Array.isArray(announcements) ? announcements : []).slice(0, 3);
+      const news = (Array.isArray(toolResults.news) ? toolResults.news : []).slice(0, 2);
+
+      const announcementText = recentAnnouncements.length > 0
+        ? `Recent announcements: ${recentAnnouncements.map(a => a.title).join(', ')}.`
         : 'No recent announcements.';
-      
-      let newsText = news.length > 0
+
+      const newsText = news.length > 0
         ? `Latest updates: ${news.map(n => n.title).join(', ')}.`
         : 'No recent updates.';
-      
+
       response = `${announcementText} ${newsText}`;
-      
+
       if (news.length > 0) {
+        // news_items uses published_date (agent entries) or published_at
+        // (manual admin entries); fall back through both to retrieved_at
+        // so the UI never renders "Invalid Date".
         sources = news.map(n => ({
           title: n.title,
           source: n.news_sources?.name || 'Unknown',
           url: n.url,
-          published: n.published_at
+          published: n.published_at || n.published_date || n.retrieved_at
         }));
       }
     }
-    else if (classification.includes('teacher') && userRole === 'teacher') {
-      toolResults.classes = await get_teacher_classes(userId);
-      response = `You are assigned to ${toolResults.classes.length} subjects across different sections.`;
+    else if (isTeacher && (classification.includes('teacher') || classification.includes('assigned'))) {
+      const classes = await get_teacher_classes(userId);
+      toolResults.classes = classes;
+
+      if (classes?.error) {
+        response = classes.error;
+      } else {
+        const count = Array.isArray(classes) ? classes.length : 0;
+        response = count > 0
+          ? `You are assigned to ${count} subject${count === 1 ? '' : 's'} across your sections.`
+          : 'You have no active subject assignments right now.';
+      }
     }
     else if (classification.includes('profile') || classification.includes('information')) {
-      toolResults.profile = await get_user_profile(userId);
-      response = `Hello ${toolResults.profile.full_name || 'User'}! You are logged in as a ${toolResults.profile.role}. How can I help you with your academic information?`;
+      const profile = await get_user_profile(userId);
+      toolResults.profile = profile;
+
+      response = profile
+        ? `Hello ${profile.full_name || 'there'}! You are logged in as a ${profile.role}. How can I help you with your academic information?`
+        : 'I could not find your profile information.';
     }
     else {
       // General fallback response
       response = "I can help you with information about your attendance, marks, timetable, announcements, and college updates. Try asking about any of these topics.";
     }
 
-    // Log the AI interaction
-    await supabase.from('ai_agent_runs').insert({
-      agent_type: 'assistant',
-      started_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
-      status: 'completed',
-      action: 'chat_response',
-      confidence: 0.8,
-      result: {
-        user_message: message,
-        response,
-        tools_used: Object.keys(toolResults),
-        classification
-      },
-      tool_calls: toolResults
-    });
+    // Log the AI interaction — a logging failure must never
+    // destroy a perfectly good answer.
+    try {
+      await supabase.from('ai_agent_runs').insert({
+        agent_type: 'assistant',
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        status: 'completed',
+        action: 'chat_response',
+        confidence: 0.8,
+        result: {
+          user_message: message,
+          response,
+          tools_used: Object.keys(toolResults),
+          classification
+        },
+        tool_calls: toolResults
+      });
+    } catch (logError) {
+      console.warn('Assistant chat logging failed (non-fatal):', logError?.message || logError);
+    }
 
     res.json({
       response,
@@ -375,7 +499,7 @@ router.post('/chat', authRequired, async (req, res) => {
 
   } catch (error) {
     console.error('AI assistant error:', error);
-    
+
     // Fallback response if something goes wrong
     res.json({
       response: "I'm having trouble accessing your information right now. Please try again later or contact support if the issue persists.",
@@ -393,7 +517,7 @@ router.post('/chat', authRequired, async (req, res) => {
 router.get('/tools', authRequired, async (req, res) => {
   try {
     const userRole = req.profile.role;
-    
+
     const availableTools = [
       {
         name: 'get_user_profile',
@@ -439,7 +563,7 @@ router.get('/tools', authRequired, async (req, res) => {
 router.get('/suggestions', authRequired, async (req, res) => {
   try {
     const userRole = req.profile.role;
-    
+
     let suggestions = [];
 
     if (userRole === 'student') {

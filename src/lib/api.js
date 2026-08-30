@@ -8,7 +8,19 @@ import { supabase } from './supabase';
 // can resolve + authorize the user (authRequired).
 // ============================================
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
+
+// The Express server mounts every router under /api (see server/index.js:
+// app.use('/api/assistant', ...), app.use('/api/notifications', ...), etc.),
+// but callers use both path styles ('/assistant/chat' and '/api/news').
+// Normalize every request onto the /api mount so both conventions work.
+function buildUrl(path) {
+  // Already an absolute URL — use as-is.
+  if (/^https?:\/\//i.test(path)) return path;
+  // Already namespaced under /api — keep it.
+  if (path === '/api' || path.startsWith('/api/')) return `${API_BASE}${path}`;
+  return `${API_BASE}/api${path}`;
+}
 
 async function apiFetch(path, options = {}) {
   const {
@@ -23,7 +35,7 @@ async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(buildUrl(path), {
     ...options,
     headers,
   });

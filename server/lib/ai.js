@@ -36,7 +36,15 @@ const KEYWORD_MAP = {
   urgent: ['urgent', 'immediate', 'emergency', 'asap', 'important notice'],
 };
 
-export const AI_MODE = process.env.OPENAI_API_KEY ? 'openai' : 'heuristic';
+// A real OpenAI key starts with 'sk-'. Placeholder values such as
+// 'your-openai-api-key-here' must be treated as "no key configured"
+// so the code never makes doomed API calls or reports the wrong mode.
+function getOpenAIKey() {
+  const key = (process.env.OPENAI_API_KEY || '').trim();
+  return key.startsWith('sk-') ? key : null;
+}
+
+export const AI_MODE = getOpenAIKey() ? 'openai' : 'heuristic';
 
 export function heuristicSummary(content, max = 280) {
   const text = (content || '').replace(/\s+/g, ' ').trim();
@@ -71,7 +79,7 @@ export function heuristicClassify(title, content) {
 }
 
 async function llmClassify(title, content) {
-  const key = process.env.OPENAI_API_KEY;
+  const key = getOpenAIKey();
   if (!key) return null;
 
   const controller = new AbortController();
@@ -136,4 +144,101 @@ export async function classifyNews({ title, content }) {
 
   const heuristic = heuristicClassify(title, content);
   return { ...heuristic, summary: heuristicSummary(content) };
+}
+
+
+// ============================================
+// ASSISTANT INTENT CLASSIFICATION
+// Maps a free-text user message to the assistant's
+// whitelisted tool intents. Returns a SPACE-SEPARATED
+// STRING of intents (e.g. 'attendance marks') because the
+// chat route matches intents with .includes().
+//
+// Hybrid like classifyNews: OpenAI refinement when a real
+// key is configured, keyword heuristics otherwise. Never
+// throws — always returns a usable string ('general' when
+// nothing matches).
+// ============================================
+
+const INTENT_KEYWORDS = {
+  attendance: ['attendance', 'attend', 'attended', 'present', 'absent', 'absence'],
+  marks: ['marks', 'mark', 'score', 'scores', 'grade', 'grades', 'result', 'results', 'gpa', 'sgpa', 'cgpa', 'percent', 'percentage'],
+  timetable: ['timetable', 'time table', 'schedule', 'class', 'classes', 'lecture', 'lectures', 'period'],
+  announcement: ['announcement', 'announcements', 'notice', 'notices', 'circular', 'circulars'],
+  news: ['news', 'update', 'updates', 'latest', 'headlines', 'happening'],
+  teacher: ['teaching', 'assigned subjects', 'my subjects', 'assigned classes'],
+  profile: ['profile', 'who am i', 'my information', 'my info', 'my account', 'my details'],
+};
+
+const VALID_INTENTS = Object.keys(INTENT_KEYWORDS);
+
+function heuristicClassifyIntent(message) {
+  const text = (message || '').toLowerCase();
+  const intents = [];
+
+  for (const [intent, words] of Object.entries(INTENT_KEYWORDS)) {
+    for (const w of words) {
+      // Word-boundary match so 'mark' doesn't hit 'market'.
+      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`\\b${escaped}\\b`).test(text)) {
+        intents.push(intent);
+        break;
+      }
+    }
+  }
+
+  return intents;
+}
+
+async function llmClassifyIntent(message) {
+  const key = getOpenAIKey();
+  if (!key) return [];
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        temperature: 0,
+        max_tokens: 60,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You map a college student/teacher question to assistant capabilities. ' +
+              `Capabilities: ${VALID_INTENTS.join(', ')}. ` +
+              'Respond ONLY with JSON: {"intents": array of capability strings}. ' +
+              'Use an empty array when the question matches none.',
+          },
+          { role: 'user', content: String(message || '').slice(0, 500) },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    const parsed = JSON.parse(json.choices?.[0]?.message?.content || '{}');
+    if (!Array.isArray(parsed.intents)) return [];
+    return parsed.intents.filter((i) => VALID_INTENTS.includes(i));
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function classifyContent(message) {
+  const keywordIntents = heuristicClassifyIntent(message);
+  const llmIntents = await llmClassifyIntent(message);
+
+  const merged = [...new Set([...keywordIntents, ...llmIntents])];
+  return merged.length > 0 ? merged.join(' ') : 'general';
 }

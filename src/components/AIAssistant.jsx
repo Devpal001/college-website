@@ -58,9 +58,21 @@ export default function AIAssistant() {
       }]);
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I'm sorry, I encountered an error. Please try again later."
+      // Give a specific, actionable message instead of a generic one:
+      // - no HTTP status  -> server unreachable
+      // - 401             -> not logged in / session expired
+      // - 5xx             -> server-side problem
+      let message = "I'm sorry, I encountered an error. Please try again later.";
+      if (!error?.status) {
+        message = "I can't reach the college server right now. If this keeps happening, make sure the API server is running (npm run dev starts it), then try again.";
+      } else if (error.status === 401) {
+        message = 'Please log in to use the AI assistant — your session may have expired. Log in and ask me again.';
+      } else if (error.status >= 500) {
+        message = 'The assistant is having a problem right now. Please try again in a moment.';
+      }
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: message
       }]);
     } finally {
       setLoading(false);

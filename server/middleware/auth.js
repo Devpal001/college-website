@@ -24,12 +24,16 @@ export async function authRequired(req, res, next) {
       : null;
 
     if (!token) {
+      console.warn(`[auth] 401 no token — ${req.method} ${req.originalUrl}`);
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
+      console.warn(
+        `[auth] 401 invalid/expired token — ${req.method} ${req.originalUrl} (${error?.message || 'no user returned'})`
+      );
       return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
@@ -40,6 +44,9 @@ export async function authRequired(req, res, next) {
       .single();
 
     if (profileError || !profile) {
+      console.warn(
+        `[auth] 401 profile lookup failed — ${req.method} ${req.originalUrl} (${profileError?.message || 'no profile'})`
+      );
       return res.status(401).json({ error: 'User profile not found' });
     }
 

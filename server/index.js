@@ -79,6 +79,19 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Request logger — records only failed requests (4xx/5xx) so problems stay
+// diagnosable without flooding the console with routine traffic.
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode >= 400) {
+      console.warn(
+        `[http] ${new Date().toISOString()} ${req.method} ${req.originalUrl} -> ${res.statusCode}`
+      );
+    }
+  });
+  next();
+});
+
 // ============================================
 // MODULAR API ROUTERS — Phase 3 + Phase 4
 // The news router is mounted FIRST because its public

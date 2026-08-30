@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
+    "status": "node scripts/status.mjs",
+    "stop": "node scripts/stop.mjs",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
