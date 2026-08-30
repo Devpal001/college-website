@@ -17,6 +17,7 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import Unauthorized from './pages/Unauthorized';
 import NewsPage from './pages/NewsPage';
 import AdminNews from './pages/AdminNews';
+import AdminAgent from './pages/AdminAgent';
 
 function App() {
   return (
@@ -38,6 +39,14 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
               <AdminNews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/agent"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+              <AdminAgent />
             </ProtectedRoute>
           }
         />

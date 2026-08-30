@@ -10,6 +10,8 @@ import recordsRouter from './routes/records.js';
 import studentsRouter from './routes/students.js';
 import teachersRouter from './routes/teachers.js';
 import newsRouter from './routes/news.js';
+import agentRouter from './routes/agent.js';
+import { startNewsScheduler } from './lib/scheduler.js';
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
@@ -94,7 +96,8 @@ app.use('/api/profile', profileRouter);
 app.use('/api', recordsRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/teachers', teachersRouter);
-console.log('✅ Modular API routers mounted (news, academics, profile, records, students, teachers)');
+app.use('/api/agent', agentRouter);
+console.log('✅ Modular API routers mounted (news, agent, academics, profile, records, students, teachers)');
 
 // ============================================
 // SUPABASE
@@ -1066,6 +1069,7 @@ app.listen(
     console.log(
       `🔐 Supabase: Connected`
     );
+    startNewsScheduler();
     console.log('');
   }
 );
