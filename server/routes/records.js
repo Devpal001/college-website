@@ -10,6 +10,52 @@ router.use(authRequired);
 const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'];
 
 // ============================================
+// Notification trigger helper
+// ============================================
+async function triggerAttendanceNotification(studentId, attendancePercentage, subjectName) {
+  try {
+    // Get student profile
+    const { data: student } = await supabase
+      .from('students')
+      .select('profile_id')
+      .eq('id', studentId)
+      .single();
+
+    if (!student) return;
+
+    // Check if attendance is below threshold (75%)
+    if (attendancePercentage < 75) {
+      // Check user notification preferences
+      const { data: preferences } = await supabase
+        .from('notification_preferences')
+        .select('attendance_alerts')
+        .eq('user_id', student.profile_id)
+        .single();
+
+      const shouldNotify = preferences ? preferences.attendance_alerts : true;
+      
+      if (shouldNotify) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: student.profile_id,
+            title: 'Low Attendance Alert',
+            message: `Your attendance in ${subjectName} has fallen to ${attendancePercentage}%. Please attend classes regularly.`,
+            type: 'attendance',
+            priority: 'high',
+            status: 'pending',
+            data: { attendancePercentage, subjectName },
+            created_at: new Date().toISOString()
+          });
+      }
+    }
+  } catch (error) {
+    console.error('Error triggering attendance notification:', error);
+    // Don't throw - notifications shouldn't block the main operation
+  }
+}
+
+// ============================================
 // Shared helper: verify teacher assignment
 // ============================================
 async function isTeacherAssigned(teacherId, subjectId, sectionId = null) {
@@ -141,6 +187,44 @@ router.post('/attendance', async (req, res) => {
     );
 
     res.status(201).json({ sessionId, records: upserts });
+
+    // Trigger attendance notifications for students with low attendance
+    // This is done asynchronously after the response
+    setImmediate(async () => {
+      try {
+        for (const record of records) {
+          // Calculate attendance percentage for this student in this subject
+          const { data: attendanceData } = await supabase
+            .from('attendance')
+            .select('*, attendance_sessions(subject_id)')
+            .eq('student_id', record.studentId);
+
+          if (attendanceData && attendanceData.length > 0) {
+            const subjectAttendance = attendanceData.filter(a => 
+              a.attendance_sessions?.subject_id === subjectId
+            );
+            
+            if (subjectAttendance.length > 0) {
+              const presentCount = subjectAttendance.filter(a => a.status === 'present').length;
+              const percentage = (presentCount / subjectAttendance.length) * 100;
+              
+              // Get subject name
+              const { data: subject } = await supabase
+                .from('subjects')
+                .select('name')
+                .eq('id', subjectId)
+                .single();
+
+              if (subject) {
+                await triggerAttendanceNotification(record.studentId, percentage, subject.name);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in attendance notification background task:', error);
+      }
+    });
   } catch (error) {
     console.error('Mark attendance error:', error);
     res.status(500).json({ error: error.message });
@@ -301,6 +385,58 @@ router.post('/marks', async (req, res) => {
     );
 
     res.status(201).json({ assessmentId, records: upserts });
+
+    // Trigger marks notifications for students
+    // This is done asynchronously after the response
+    setImmediate(async () => {
+      try {
+        // Get subject and assessment info
+        const { data: subject } = await supabase
+          .from('subjects')
+          .select('name')
+          .eq('id', assessment.subject_id)
+          .single();
+
+        if (!subject) return;
+
+        // Get student profiles for all students who received marks
+        const studentIds = records.map(r => r.studentId);
+        const { data: students } = await supabase
+          .from('students')
+          .select('id, profile_id')
+          .in('id', studentIds);
+
+        if (!students) return;
+
+        // Filter by notification preferences and send notifications
+        for (const student of students) {
+          const { data: preferences } = await supabase
+            .from('notification_preferences')
+            .select('exam_updates')
+            .eq('user_id', student.profile_id)
+            .single();
+
+          const shouldNotify = preferences ? preferences.exam_updates : true;
+          
+          if (shouldNotify) {
+            await supabase
+              .from('notifications')
+              .insert({
+                user_id: student.profile_id,
+                title: 'Marks Published',
+                message: `Your marks for ${assessment.title} (${subject.name}) have been published.`,
+                type: 'exam',
+                priority: 'normal',
+                status: 'pending',
+                data: { assessmentId: assessment.id, assessmentTitle: assessment.title, subjectName: subject.name },
+                created_at: new Date().toISOString()
+              });
+          }
+        }
+      } catch (error) {
+        console.error('Error in marks notification background task:', error);
+      }
+    });
   } catch (error) {
     console.error('Enter marks error:', error);
     res.status(500).json({ error: error.message });

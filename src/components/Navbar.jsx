@@ -2,8 +2,9 @@ import { supabase } from '../lib/supabase';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/mbslogo.png';
 import NewsTicker from './NewsTicker';
+import NotificationBell from './NotificationBell';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Phone } from 'lucide-react';
+import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Phone, Bot } from 'lucide-react';
 
 const lightColors = {
   '--color-primary': '#353084',
@@ -133,6 +134,8 @@ function Navbar() {
           >
             {darkMode ? <Sun className="text-primary" size={18} /> : <Moon className="text-primary" size={18} />}
           </button>
+
+          {session && <NotificationBell />}
 
           {session ? (
             <>
@@ -268,6 +271,12 @@ function Navbar() {
             <Megaphone size={20} />
             <span className="text-xs">Gallery</span>
           </Link>
+          {session && (
+            <div className="flex flex-col items-center gap-1 text-primary">
+              <Bot size={20} />
+              <span className="text-xs font-medium">AI</span>
+            </div>
+          )}
           <Link
             to="/admissions"
             className="flex flex-col items-center gap-1 text-primary"

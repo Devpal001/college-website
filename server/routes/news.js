@@ -471,7 +471,7 @@ router.put('/admin/items/:id/verify', ...adminGuard, async (req, res) => {
 
     if (status === 'verified') {
       updateData.is_published = true;
-      updateData.published_by = req.user.id;
+      updateData.published_by = req.profile.id;
       updateData.published_at = new Date().toISOString();
     }
 
@@ -488,6 +488,50 @@ router.put('/admin/items/:id/verify', ...adminGuard, async (req, res) => {
 
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'News item not found' });
+
+    // Trigger notifications when news is published
+    if (status === 'verified' && updateData.is_published) {
+      setImmediate(async () => {
+        try {
+          // Get users who want AI discoveries
+          const { data: preferences } = await supabase
+            .from('notification_preferences')
+            .select('user_id')
+            .eq('ai_discoveries', true);
+
+          if (preferences && preferences.length > 0) {
+            const userIds = preferences.map(p => p.user_id);
+            
+            // Get news source for categorization
+            const { data: source } = await supabase
+              .from('news_sources')
+              .select('name')
+              .eq('id', data.source_id)
+              .single();
+
+            // Send notifications to eligible users
+            const notifications = userIds.map(userId => ({
+              user_id: userId,
+              title: 'New College Update',
+              message: data.title,
+              type: 'ai_news',
+              priority: 'normal',
+              status: 'pending',
+              data: { 
+                newsId: data.id, 
+                category: data.category,
+                source: source?.name || 'College Website'
+              },
+              created_at: new Date().toISOString()
+            }));
+
+            await supabase.from('notifications').insert(notifications);
+          }
+        } catch (error) {
+          console.error('Error triggering news notification:', error);
+        }
+      });
+    }
 
     res.json(data);
   } catch (error) {

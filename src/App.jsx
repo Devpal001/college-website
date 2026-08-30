@@ -18,6 +18,7 @@ import Unauthorized from './pages/Unauthorized';
 import NewsPage from './pages/NewsPage';
 import AdminNews from './pages/AdminNews';
 import AdminAgent from './pages/AdminAgent';
+import Notifications from './pages/Notifications';
 
 function App() {
   return (
@@ -34,6 +35,14 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="/news" element={<NewsPage />} />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/news"
           element={
@@ -93,6 +102,7 @@ function App() {
 
         <Route path="*" element={<ComingSoon />} />
       </Routes>
+      <AIAssistant />
       <Footer />
     </>
   );

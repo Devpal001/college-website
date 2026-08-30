@@ -11,6 +11,8 @@ import studentsRouter from './routes/students.js';
 import teachersRouter from './routes/teachers.js';
 import newsRouter from './routes/news.js';
 import agentRouter from './routes/agent.js';
+import notificationsRouter from './routes/notifications.js';
+import assistantRouter from './routes/assistant.js';
 import { startNewsScheduler } from './lib/scheduler.js';
 
 // ============================================
@@ -97,7 +99,9 @@ app.use('/api', recordsRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/teachers', teachersRouter);
 app.use('/api/agent', agentRouter);
-console.log('✅ Modular API routers mounted (news, agent, academics, profile, records, students, teachers)');
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/assistant', assistantRouter);
+console.log('✅ Modular API routers mounted (news, agent, academics, profile, records, students, teachers, notifications, assistant)');
 
 // ============================================
 // SUPABASE
