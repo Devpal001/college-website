@@ -101,6 +101,7 @@ function Navbar() {
   const location = useLocation();
   const [darkMode, setDarkMode] = useState(false);
   const [session, setSession] = useState(null);
+  const [role, setRole] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -111,16 +112,57 @@ function Navbar() {
   }, [darkMode]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function load() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
-    });
+      if (session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          setRole(profile?.role || null);
+        } catch (_) {
+          setRole(null);
+        }
+      } else {
+        setRole(null);
+      }
+    }
+    load();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      if (session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          setRole(profile?.role || null);
+        } catch (_) {
+          setRole(null);
+        }
+      } else {
+        setRole(null);
+      }
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  const dashboardPath =
+    role === 'student'
+      ? '/student-dashboard'
+      : role === 'teacher'
+        ? '/teacher-dashboard'
+        : role === 'admin' || role === 'super_admin'
+          ? '/admin-dashboard'
+          : null;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -146,12 +188,22 @@ function Navbar() {
           </button>
 
           {session ? (
-            <button
-              onClick={handleLogout}
-              className="text-sm font-medium text-text-main hover:text-primary transition"
-            >
-              Logout
-            </button>
+            <>
+              {dashboardPath && (
+                <Link
+                  to={dashboardPath}
+                  className="text-sm font-medium text-primary hover:underline transition"
+                >
+                  Dashboard
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-text-main hover:text-primary transition"
+              >
+                Logout
+              </button>
+            </>
           ) : (
             <Link
               to="/login"

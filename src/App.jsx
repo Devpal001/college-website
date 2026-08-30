@@ -11,6 +11,10 @@ import Signup from './pages/Signup';
 import PlaceholderPage from './pages/PlaceholderPage';
 import ComingSoon from './pages/ComingSoon';
 import Gallery from './components/Gallery';
+import { ProtectedRoute } from './hooks/useAuth';
+import StudentDashboard from './pages/StudentDashboard';
+import TeacherDashboard from './pages/TeacherDashboard';
+import Unauthorized from './pages/Unauthorized';
 
 function App() {
   return (
@@ -25,6 +29,23 @@ function App() {
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route
+          path="/student-dashboard"
+          element={
+            <ProtectedRoute requiredRoles={['student']}>
+              <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher-dashboard"
+          element={
+            <ProtectedRoute requiredRoles={['teacher']}>
+              <TeacherDashboard />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Footer links — placeholders for now */}
         <Route path="/placement" element={<PlaceholderPage title="Training and Placement" />} />

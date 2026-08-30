@@ -4,6 +4,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import academicsRouter from './routes/academics.js';
+import profileRouter from './routes/profile.js';
+import recordsRouter from './routes/records.js';
+import studentsRouter from './routes/students.js';
+import teachersRouter from './routes/teachers.js';
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
@@ -68,6 +73,20 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// ============================================
+// MODULAR API ROUTERS — Phase 3 (Academic Platform)
+// Mounted before the legacy inline handlers below so the
+// authenticated, service-role API takes precedence for
+// attendance, marks, timetable, student/teacher dashboards,
+// profile, and academic reference data.
+// ============================================
+app.use('/api', academicsRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api', recordsRouter);
+app.use('/api/students', studentsRouter);
+app.use('/api/teachers', teachersRouter);
+console.log('✅ Modular API routers mounted (academics, profile, records, students, teachers)');
 
 // ============================================
 // SUPABASE
