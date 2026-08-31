@@ -256,7 +256,7 @@ export default function Notifications() {
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     <span className="text-3xl">
                       {getTypeIcon(notification.type)}
                     </span>
@@ -290,7 +290,7 @@ export default function Notifications() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         {!notification.read && (
                           <button
                             type="button"
