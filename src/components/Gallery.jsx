@@ -68,7 +68,7 @@ export default function Gallery() {
                 className="group relative aspect-square overflow-hidden rounded-soft-lg cursor-pointer w-full text-left"
               >
                 {/* Placeholder for actual image */}
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                <div className="w-full h-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
                   <span className="text-text-muted text-sm font-medium">
                     {image.title}
                   </span>
@@ -80,7 +80,7 @@ export default function Gallery() {
                 </div>
 
                 {/* Image info overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <h3 className="text-white font-medium text-sm">{image.title}</h3>
                   <p className="text-white/70 text-xs mt-1">{image.description}</p>
                 </div>
@@ -116,7 +116,7 @@ export default function Gallery() {
             {/* Image container */}
             <div className="bg-surface rounded-soft-lg overflow-hidden">
               {/* Placeholder for actual image */}
-              <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+              <div className="aspect-video bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
                 <span className="text-text-muted font-medium">
                   {selectedImage.title}
                 </span>
