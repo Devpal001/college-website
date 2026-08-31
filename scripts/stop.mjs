@@ -16,7 +16,10 @@ try {
 const pids = new Set();
 for (const line of output.split('\n')) {
   const m = line.trim().match(new RegExp(`^TCP\\s+\\S+:${PORTS}\\s+\\S+\\s+LISTENING\\s+(\\d+)$`, 'i'));
-  if (m) pids.add(Number(m[1]));
+  // Capture group 1 is the port alternation '(3001|5173|5174)' — the PID
+  // is group 2. m[1] here tried to kill nonexistent PIDs "3001"/"5173",
+  // silently leaving the dev stack running (causing port-in-use conflicts).
+  if (m) pids.add(Number(m[2]));
 }
 
 if (pids.size === 0) {

@@ -8,7 +8,23 @@ import { supabase } from './supabase';
 // can resolve + authorize the user (authRequired).
 // ============================================
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
+// Resolve the API base URL for the environment we are running in:
+//
+// 1. VITE_API_URL (if set in .env) always wins — explicit override.
+// 2. Dev (`npm run dev`): use SAME-ORIGIN relative URLs ('').
+//    The Vite dev server proxies /api -> http://localhost:3001 (see
+//    vite.config.js). This works no matter which device loads the page:
+//    on the PC it's http://localhost:5173/api/..., on a phone on the same
+//    Wi-Fi it's http://<PC-LAN-IP>:5173/api/... — both reach the backend
+//    through the proxy running on the PC, with no hardcoded IP here.
+//    (Do NOT default to http://localhost:3001 in dev: on a phone,
+//    "localhost" would be the phone itself, not the PC running the API.)
+// 3. Production build: fall back to the backend origin (legacy behavior,
+//    unchanged — there is no production deployment for this project).
+const API_BASE = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? '' : 'http://localhost:3001')
+).replace(/\/+$/, '');
 
 // The Express server mounts every router under /api (see server/index.js:
 // app.use('/api/assistant', ...), app.use('/api/notifications', ...), etc.),

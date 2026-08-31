@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
@@ -76,6 +77,13 @@ const PORT = process.env.PORT || 3001;
 // MIDDLEWARE
 // ============================================
 
+// CORS: permissive in this dev setup on purpose.
+// 1) The Vite dev proxy makes browser requests same-origin, so CORS
+//    doesn't even apply for the normal dev flow.
+// 2) Direct access to :3001 (e.g. opening http://<PC-LAN-IP>:3001/health
+//    from a phone for testing) must not be blocked by origin checks.
+// This is safe: the Supabase service-role key never leaves this process,
+// and every protected router enforces authRequired on its own routes.
 app.use(cors());
 app.use(express.json());
 
@@ -1070,9 +1078,24 @@ app.use(
 // START SERVER
 // ============================================
 
+// Best-effort LAN IPv4 (for helpful startup logs only — nothing binds to it).
+function getLanIpAddress() {
+  for (const addresses of Object.values(os.networkInterfaces())) {
+    for (const net of addresses || []) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return null;
+}
+
+// Bind explicitly to 0.0.0.0 so the API is reachable from other devices on
+// the same Wi-Fi (e.g. direct health checks from a phone, or via the Vite
+// dev proxy which forwards /api to localhost:3001 on this PC).
 app.listen(
   PORT,
+  '0.0.0.0',
   () => {
+    const lanIp = getLanIpAddress();
     console.log('');
     console.log(
       '🚀 College Digital Platform API running'
@@ -1080,6 +1103,11 @@ app.listen(
     console.log(
       `📡 Health check: http://localhost:${PORT}/health`
     );
+    if (lanIp) {
+      console.log(
+        `📱 Same-network devices: http://${lanIp}:${PORT}/health`
+      );
+    }
     console.log(
       `🔗 API Base URL: http://localhost:${PORT}/api`
     );
