@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { api } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
@@ -117,20 +117,26 @@ function TeacherDashboard() {
   const [markLoading, setMarkLoading] = useState(false);
   const [markMessage, setMarkMessage] = useState('');
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([api.get('/teachers/me/dashboard'), api.get('/teachers/me/assessments')])
-      .then(([d, a]) => {
-        if (!mounted) return;
-        setData(d);
-        setAssessments(a || []);
-      })
-      .catch((e) => mounted && setError(e.message))
-      .finally(() => mounted && setLoading(false));
-    return () => {
-      mounted = false;
-    };
+  const loadDashboard = useCallback(async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const [d, a] = await Promise.all([
+        api.get('/teachers/me/dashboard'),
+        api.get('/teachers/me/assessments'),
+      ]);
+      setData(d);
+      setAssessments(a || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   // Derived: teacher's classes (subject+section pairs) from assigned subjects
   const classes = (data?.subjects || [])
@@ -304,7 +310,14 @@ function TeacherDashboard() {
       <div className="min-h-[60vh] flex items-center justify-center px-6">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
           <p className="text-error font-medium mb-2">Unable to load your dashboard</p>
-          <p className="text-sm text-text-muted">{error}</p>
+          <p className="text-sm text-text-muted mb-4">{error}</p>
+          <button
+            type="button"
+            onClick={loadDashboard}
+            className="bg-primary text-white px-5 py-2 rounded-soft text-sm font-medium hover:bg-primary-dark transition"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -513,8 +526,9 @@ function TeacherDashboard() {
                 placeholder="Select class"
               />
               <div>
-                <label className="text-sm text-text-muted block mb-1">Date</label>
+                <label htmlFor="attendance-date" className="text-sm text-text-muted block mb-1">Date</label>
                 <input
+                  id="attendance-date"
                   type="date"
                   value={attDate}
                   onChange={(e) => setAttDate(e.target.value)}
@@ -696,6 +710,7 @@ function TeacherDashboard() {
                             <td className="py-2">
                               <input
                                 type="number"
+                                aria-label={`Marks for ${s.profiles?.full_name || s.enrollment_number}`}
                                 min="0"
                                 max={max}
                                 step="0.01"
@@ -738,8 +753,9 @@ function TeacherDashboard() {
                   placeholder="Select subject"
                 />
                 <div>
-                  <label className="text-sm text-text-muted block mb-1">Title</label>
+                  <label htmlFor="assessment-title" className="text-sm text-text-muted block mb-1">Title</label>
                   <input
+                    id="assessment-title"
                     type="text"
                     required
                     value={newAssess.title}
@@ -750,8 +766,9 @@ function TeacherDashboard() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm text-text-muted block mb-1">Type</label>
+                    <label htmlFor="assessment-type" className="text-sm text-text-muted block mb-1">Type</label>
                     <select
+                      id="assessment-type"
                       value={newAssess.type}
                       onChange={(e) => setNewAssess((p) => ({ ...p, type: e.target.value }))}
                       className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
@@ -764,8 +781,9 @@ function TeacherDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-sm text-text-muted block mb-1">Max Marks</label>
+                    <label htmlFor="assessment-max-marks" className="text-sm text-text-muted block mb-1">Max Marks</label>
                     <input
+                      id="assessment-max-marks"
                       type="number"
                       required
                       min="1"
@@ -778,8 +796,9 @@ function TeacherDashboard() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm text-text-muted block mb-1">Weightage (%)</label>
+                    <label htmlFor="assessment-weightage" className="text-sm text-text-muted block mb-1">Weightage (%)</label>
                     <input
+                      id="assessment-weightage"
                       type="number"
                       min="0"
                       max="100"
@@ -790,8 +809,9 @@ function TeacherDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-text-muted block mb-1">Scheduled Date</label>
+                    <label htmlFor="assessment-scheduled-date" className="text-sm text-text-muted block mb-1">Scheduled Date</label>
                     <input
+                      id="assessment-scheduled-date"
                       type="date"
                       value={newAssess.dateScheduled}
                       onChange={(e) => setNewAssess((p) => ({ ...p, dateScheduled: e.target.value }))}

@@ -5,14 +5,8 @@ import { galleryCategories, getImagesByCategory } from '../data/gallery';
 export default function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedImage, setSelectedImage] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   const filteredImages = getImagesByCategory(selectedCategory);
-
-  // Simulate loading
-  useEffect(() => {
-    setTimeout(() => setIsLoading(false), 1000);
-  }, []);
 
   const handleImageClick = (image) => {
     setSelectedImage(image);
@@ -63,19 +57,15 @@ export default function Gallery() {
 
       {/* Gallery Grid */}
       <section className="container-lg pb-16">
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="aspect-square bg-surface rounded-soft-lg animate-pulse" />
-            ))}
-          </div>
-        ) : filteredImages.length > 0 ? (
+        {filteredImages.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredImages.map((image) => (
-              <div
+              <button
                 key={image.id}
-                className="group relative aspect-square overflow-hidden rounded-soft-lg cursor-pointer"
+                type="button"
                 onClick={() => handleImageClick(image)}
+                aria-label={`View ${image.title}`}
+                className="group relative aspect-square overflow-hidden rounded-soft-lg cursor-pointer w-full text-left"
               >
                 {/* Placeholder for actual image */}
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -94,7 +84,7 @@ export default function Gallery() {
                   <h3 className="text-white font-medium text-sm">{image.title}</h3>
                   <p className="text-white/70 text-xs mt-1">{image.description}</p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         ) : (

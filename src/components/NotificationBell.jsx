@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
+import {
+  getPriorityColor,
+  getTypeIcon,
+  formatTime,
+} from '../lib/notificationFormat';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -75,43 +80,8 @@ export default function NotificationBell() {
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'critical': return 'bg-error';
-      case 'high': return 'bg-warning';
-      case 'normal': return 'bg-info';
-      case 'low': return 'bg-text-muted';
-      default: return 'bg-info';
-    }
-  };
-
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'announcement': return '📢';
-      case 'attendance': return '📅';
-      case 'marks': return '📊';
-      case 'timetable': return '🕐';
-      case 'exam': return '📝';
-      case 'event': return '🎉';
-      case 'ai_news': return '🤖';
-      default: return '🔔';
-    }
-  };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
+  // Priority colors, type icons, and relative timestamps are shared with the
+  // /notifications page via src/lib/notificationFormat.js (design §24).
 
   return (
     <div className="relative">

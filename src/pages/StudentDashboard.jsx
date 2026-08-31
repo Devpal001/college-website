@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
@@ -71,17 +71,22 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
 
-  useEffect(() => {
-    let mounted = true;
-    api
-      .get('/students/me/dashboard')
-      .then((d) => mounted && setData(d))
-      .catch((e) => mounted && setError(e.message))
-      .finally(() => mounted && setLoading(false));
-    return () => {
-      mounted = false;
-    };
+  const loadDashboard = useCallback(async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const d = await api.get('/students/me/dashboard');
+      setData(d);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   if (loading) {
     return (
@@ -96,7 +101,14 @@ function StudentDashboard() {
       <div className="min-h-[60vh] flex items-center justify-center px-6">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
           <p className="text-error font-medium mb-2">Unable to load your dashboard</p>
-          <p className="text-sm text-text-muted">{error}</p>
+          <p className="text-sm text-text-muted mb-4">{error}</p>
+          <button
+            type="button"
+            onClick={loadDashboard}
+            className="bg-primary text-white px-5 py-2 rounded-soft text-sm font-medium hover:bg-primary-dark transition"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );

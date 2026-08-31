@@ -2,21 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bot, Play, RefreshCw, ChevronDown, ChevronUp, Newspaper, Zap, Clock } from 'lucide-react';
 import { api } from '../lib/api';
-
-function Badge({ tone = 'gray', children }) {
-  const tones = {
-    green: 'bg-success/10 text-success-dark',
-    red: 'bg-error/10 text-error-dark',
-    amber: 'bg-warning/10 text-warning-dark',
-    blue: 'bg-info/10 text-info-dark',
-    gray: 'bg-text-muted/10 text-text-muted',
-  };
-  return (
-    <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tones[tone]}`}>
-      {children}
-    </span>
-  );
-}
+import Badge from '../components/Badge';
 
 function fmtDateTime(v) {
   if (!v) return '—';

@@ -18,14 +18,14 @@ const CATEGORIES = [
   'urgent',
 ];
 
+// Category chips: semantic colors only where the category has real status
+// meaning (design system §4). Categories without one stay neutral so color
+// keeps its meaning — same treatment as deadline/academic/administrative.
 const CATEGORY_STYLES = {
   urgent: 'bg-error/10 text-error-dark',
   exam: 'bg-warning/10 text-warning-dark',
   admission: 'bg-info/10 text-info-dark',
   placement: 'bg-success/10 text-success-dark',
-  result: 'bg-violet-100 text-violet-700',
-  event: 'bg-pink-100 text-pink-700',
-  scholarship: 'bg-teal-100 text-teal-700',
   holiday: 'bg-warning/10 text-warning-dark',
 };
 
@@ -224,6 +224,7 @@ function NewsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search news…"
+                aria-label="Search news"
                 className="pl-8 pr-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-44 md:w-56"
               />
             </div>

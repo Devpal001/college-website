@@ -83,14 +83,15 @@ function Admissions() {
           <h2 className="text-2xl font-bold text-text-main mb-6 text-center">Apply Now</h2>
 
           {success ? (
-            <p className="text-success-dark text-center font-medium">
+            <p role="status" className="text-success-dark text-center font-medium">
               Application submitted! We'll be in touch soon.
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
               <div>
-                <label className="text-sm text-text-muted block mb-1">Full Name</label>
+                <label htmlFor="adm-full-name" className="text-sm text-text-muted block mb-1">Full Name</label>
                 <input
+                  id="adm-full-name"
                   type="text"
                   name="full_name"
                   required
@@ -100,8 +101,9 @@ function Admissions() {
                 />
               </div>
               <div>
-                <label className="text-sm text-text-muted block mb-1">Email</label>
+                <label htmlFor="adm-email" className="text-sm text-text-muted block mb-1">Email</label>
                 <input
+                  id="adm-email"
                   type="email"
                   name="email"
                   required
@@ -111,8 +113,9 @@ function Admissions() {
                 />
               </div>
               <div>
-                <label className="text-sm text-text-muted block mb-1">Phone</label>
+                <label htmlFor="adm-phone" className="text-sm text-text-muted block mb-1">Phone</label>
                 <input
+                  id="adm-phone"
                   type="tel"
                   name="phone"
                   required
@@ -122,8 +125,9 @@ function Admissions() {
                 />
               </div>
                             <div>
-                <label className="text-sm text-text-muted block mb-1">Course Applying For</label>
+                <label htmlFor="adm-course" className="text-sm text-text-muted block mb-1">Course Applying For</label>
                 <select
+                  id="adm-course"
                   name="course_applied"
                   required
                   value={form.course_applied}
@@ -138,8 +142,9 @@ function Admissions() {
                   <option value="B.Tech Electrical Engineering">B.Tech Electrical Engineering</option>
                   <option value="B.Tech Electronics & Communication Engineering">B.Tech Electronics & Communication Engineering</option>
                 </select>
-                <label className="text-sm text-text-muted block mb-1">Message (optional)</label>
+                <label htmlFor="adm-message" className="text-sm text-text-muted block mb-1">Message (optional)</label>
                 <textarea
+                  id="adm-message"
                   name="message"
                   rows={3}
                   value={form.message}
@@ -148,7 +153,7 @@ function Admissions() {
                 />
               </div>
 
-              {error && <p className="text-error text-sm">{error}</p>}
+              {error && <p role="alert" className="text-error text-sm">{error}</p>}
 
               <button
                 type="submit"

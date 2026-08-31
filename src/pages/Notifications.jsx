@@ -2,6 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { Bell, Check, X, Settings, Filter } from 'lucide-react';
 import { api } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import {
+  getPriorityColor,
+  getTypeIcon,
+  formatTime,
+} from '../lib/notificationFormat';
 
 const PREFERENCE_OPTIONS = [
   ['college_announcements', 'College Announcements'],
@@ -14,66 +19,8 @@ const PREFERENCE_OPTIONS = [
   ['ai_discoveries', 'AI Discoveries'],
 ];
 
-function getPriorityColor(priority) {
-  switch (priority) {
-    case 'critical':
-      return 'bg-error';
-    case 'high':
-      return 'bg-warning';
-    case 'normal':
-      return 'bg-info';
-    case 'low':
-      return 'bg-text-muted';
-    default:
-      return 'bg-info';
-  }
-}
-
-function getTypeIcon(type) {
-  switch (type) {
-    case 'announcement':
-      return '📢';
-    case 'attendance':
-      return '📅';
-    case 'marks':
-      return '📊';
-    case 'timetable':
-      return '🕐';
-    case 'exam':
-      return '📝';
-    case 'event':
-      return '🎉';
-    case 'ai_news':
-      return '🤖';
-    default:
-      return '🔔';
-  }
-}
-
-function formatTime(timestamp) {
-  if (!timestamp) return '';
-
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  const diffMs = Date.now() - date.getTime();
-
-  if (diffMs < 0) return date.toLocaleDateString();
-
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString();
-}
+// Priority colors, type icons, and relative timestamps are shared with the
+// NotificationBell dropdown via src/lib/notificationFormat.js (design §24).
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -352,6 +299,7 @@ export default function Notifications() {
                             }
                             className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                             title="Mark as read"
+                            aria-label="Mark as read"
                           >
                             <Check className="w-5 h-5 text-text-muted hover:text-primary" />
                           </button>
@@ -364,6 +312,7 @@ export default function Notifications() {
                           }
                           className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                           title="Delete"
+                          aria-label="Delete notification"
                         >
                           <X className="w-5 h-5 text-text-muted hover:text-error" />
                         </button>

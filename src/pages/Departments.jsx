@@ -1,22 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { departments } from '../data/departments';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
-import SkeletonCard from '../components/SkeletonCard';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 function Departments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [headerRef, headerVisible] = useScrollAnimation({ once: true });
   const [cardsRef, cardsVisible] = useScrollAnimation({ once: true });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading for demonstration
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
 
   const filteredDepartments = departments.filter(dept =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -42,15 +33,9 @@ function Departments() {
             placeholder="Search departments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={isLoading}
             className="w-full pl-12 pr-4 py-3 bg-surface border border-text-muted/20 rounded-soft-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-text-main placeholder-text-muted transition-all disabled:opacity-50"
             aria-label="Search departments"
           />
-          {isLoading && (
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              <LoadingSpinner size="sm" />
-            </div>
-          )}
         </div>
       </section>
 
@@ -64,12 +49,7 @@ function Departments() {
       {/* Card Grid */}
       <section ref={cardsRef} className="container-lg py-24 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {isLoading ? (
-          // Show skeleton cards while loading
-          Array.from({ length: 6 }).map((_, index) => (
-            <SkeletonCard key={index} />
-          ))
-        ) : filteredDepartments.length > 0 ? (
+        {filteredDepartments.length > 0 ? (
           filteredDepartments.map((dept, index) => {
             const Icon = dept.icon;
             const staggerClass = `stagger-${(index % 6) + 1}`;

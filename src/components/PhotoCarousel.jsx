@@ -18,13 +18,19 @@ function PhotoCarousel() {
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Autoplay respects prefers-reduced-motion (design system §21):
+  // users who opt out of motion get manual-only navigation.
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || prefersReducedMotion) return;
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % images.length);
     }, 4500); // slides every 4.5 seconds
     return () => clearInterval(timer);
-  }, [isPaused]);
+  }, [isPaused, prefersReducedMotion]);
 
   const goPrev = () => setCurrent((prev) => (prev - 1 + images.length) % images.length);
   const goNext = () => setCurrent((prev) => (prev + 1) % images.length);
@@ -45,6 +51,7 @@ function PhotoCarousel() {
           {images.map((img, index) => (
             <div
               key={index}
+              aria-hidden={index !== current}
               className={`absolute inset-0 transition-opacity duration-700 ${
                 index === current ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
@@ -59,13 +66,17 @@ function PhotoCarousel() {
 
         {/* Prev/Next buttons */}
         <button
+          type="button"
           onClick={goPrev}
+          aria-label="Previous photo"
           className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-soft transition"
         >
           <ChevronLeft size={20} />
         </button>
         <button
+          type="button"
           onClick={goNext}
+          aria-label="Next photo"
           className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-soft transition"
         >
           <ChevronRight size={20} />
@@ -76,7 +87,10 @@ function PhotoCarousel() {
           {images.map((_, index) => (
             <button
               key={index}
+              type="button"
               onClick={() => setCurrent(index)}
+              aria-label={`Go to photo ${index + 1}`}
+              aria-current={index === current}
               className={`w-2 h-2 rounded-full transition ${
                 index === current ? 'bg-white' : 'bg-white/50'
               }`}

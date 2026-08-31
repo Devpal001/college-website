@@ -2,6 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply the saved theme before first paint so dark mode (and the
+      // flattened shadow tokens) never flash the wrong values.
+      // The palette itself lives in src/index.css (:root + html.dark) —
+      // this script only toggles the `dark` class.
+      (function () {
+        try {
+          var saved = localStorage.getItem('mbscet-theme');
+          var dark = saved
+            ? saved === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* localStorage unavailable — light theme applies */
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta

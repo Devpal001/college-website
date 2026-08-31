@@ -5,7 +5,7 @@ function About() {
     <div>
       {/* Header */}
       <section className="px-6 py-20 text-center bg-bg-soft fade-in">
-        <h1 className="text-4xl font-bold text-text-main">About YourCollege</h1>
+        <h1 className="text-4xl font-bold text-text-main">About MBSCET</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto">
           For decades, we've been committed to academic excellence, innovation,
           and preparing students to lead in a changing world.
@@ -75,7 +75,7 @@ function About() {
       <section className="px-6 py-16 max-w-3xl mx-auto text-center">
         <h2 className="text-2xl font-bold text-text-main mb-4">Our Story</h2>
         <p className="text-text-muted text-sm leading-relaxed">
-          Founded with a vision to make quality education accessible, YourCollege
+          Founded with a vision to make quality education accessible, MBSCET
           has grown from a small institution into a thriving academic community.
           Today, we continue to evolve — embracing technology, research, and
           real-world learning to prepare our students for tomorrow's challenges.

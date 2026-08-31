@@ -6,34 +6,6 @@ import NotificationBell from './NotificationBell';
 import { useState, useEffect } from 'react';
 import { Sun, Moon, Menu, X, Images, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
-const lightColors = {
-  '--color-primary': '#353084',
-  '--color-primary-dark': '#14204A',
-  '--color-secondary': '#E8611C',
-  '--color-bg-soft': '#F7F7F5',
-  '--color-surface': '#F7F7F5',
-  '--color-navbar': '#EEEEEE',
-  '--color-text-main': '#212B36',
-  '--color-text-muted': '#637381',
-  '--shadow-soft': 'none',
-  '--shadow-soft-lg': 'none',
-  '--shadow-inset': 'none',
-};
-
-const darkColors = {
-  '--color-primary': '#4A7FC9',
-  '--color-primary-dark': '#6B9BDB',
-  '--color-secondary': '#E8894A',
-  '--color-bg-soft': '#1A1D23',
-  '--color-surface': '#1A1D23',
-  '--color-navbar': '#22262E',
-  '--color-text-main': '#E8E9EB',
-  '--color-text-muted': '#9CA3AF',
-  '--shadow-soft': 'none',
-  '--shadow-soft-lg': 'none',
-  '--shadow-inset': 'none',
-};
-
 const navLinks = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
@@ -60,11 +32,12 @@ function Navbar() {
   const [role, setRole] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Theme switching: toggle the `dark` class on <html> and persist the
+  // choice. All palette values live in src/index.css (:root + html.dark);
+  // the pre-paint script in index.html applies the saved theme before
+  // first paint so there is never a flash of the wrong theme.
   useEffect(() => {
-    const colors = darkMode ? darkColors : lightColors;
-    Object.entries(colors).forEach(([key, value]) => {
-      document.documentElement.style.setProperty(key, value);
-    });
+    document.documentElement.classList.toggle('dark', darkMode);
     try {
       localStorage.setItem('mbscet-theme', darkMode ? 'dark' : 'light');
     } catch {

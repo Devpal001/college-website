@@ -47,6 +47,10 @@
   --space-8: 4rem;     /* 64px */
   --space-12: 6rem;    /* 96px */
 }
+/* Dark-mode palette — applied by toggling the `dark` class on <html>
+   (Navbar + the pre-paint script in index.html). This is the single
+   source of truth for dark colors; shadow tokens stay flattened in
+   dark mode as well (see the html block below). */
 html.dark {
   --color-primary: #4A7FC9;
   --color-primary-dark: #6B9BDB;
@@ -71,15 +75,24 @@ html.dark {
   --color-info-light: #93C5FD;
   --color-info-dark: #3B82F6;
 
-  --shadow-soft: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.03);
-  --shadow-soft-lg: 10px 10px 20px rgba(0, 0, 0, 0.5), -10px -10px 20px rgba(255, 255, 255, 1);
+  /* Shadow tokens intentionally not overridden here — they stay flattened
+     exactly as in light mode (see the html block below). */
 }
 html {
   scroll-behavior: smooth;
   font-size: var(--font-size-base);
-  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-soft-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  /* Shadow tokens are intentionally flattened app-wide (design system §1 —
+     minimal visual noise). The Navbar used to force these to `none` via
+     inline styles after mount, which caused a first-paint flash; defining
+     them here keeps the same look with CSS as the single source of truth.
+     To restore depth later, re-enable:
+       --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+       --shadow-soft-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+       --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  */
+  --shadow-soft: none;
+  --shadow-soft-lg: none;
+  --shadow-inset: none;
 }
 body {
   background-color: var(--color-bg-soft);

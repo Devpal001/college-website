@@ -36,8 +36,9 @@ function Contact() {
           <h3 className="text-xl font-bold text-text-main mb-6">Send a Message</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm text-text-muted block mb-1">Name</label>
+              <label htmlFor="contact-name" className="text-sm text-text-muted block mb-1">Name</label>
               <input
+                id="contact-name"
                 type="text"
                 required
                 value={name}
@@ -47,8 +48,9 @@ function Contact() {
               />
             </div>
             <div>
-              <label className="text-sm text-text-muted block mb-1">Email</label>
+              <label htmlFor="contact-email" className="text-sm text-text-muted block mb-1">Email</label>
               <input
+                id="contact-email"
                 type="email"
                 required
                 value={email}
@@ -58,8 +60,9 @@ function Contact() {
               />
             </div>
             <div>
-              <label className="text-sm text-text-muted block mb-1">Message</label>
+              <label htmlFor="contact-message" className="text-sm text-text-muted block mb-1">Message</label>
               <textarea
+                id="contact-message"
                 required
                 rows="4"
                 value={message}
@@ -70,10 +73,10 @@ function Contact() {
             </div>
 
             {status === 'success' && (
-              <p className="text-success-dark text-sm">Message sent! We'll get back to you soon.</p>
+              <p role="status" className="text-success-dark text-sm">Message sent! We'll get back to you soon.</p>
             )}
             {status === 'error' && (
-              <p className="text-error text-sm">Something went wrong. Please try again.</p>
+              <p role="alert" className="text-error text-sm">Something went wrong. Please try again.</p>
             )}
 
             <button

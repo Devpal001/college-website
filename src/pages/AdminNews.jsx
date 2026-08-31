@@ -14,6 +14,7 @@ import {
   Rss,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import Badge from '../components/Badge';
 
 const CATEGORIES = [
   'exam',
@@ -46,21 +47,6 @@ const inputCls =
   'px-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full';
 
 const labelCls = 'block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1';
-
-function Badge({ tone = 'gray', children }) {
-  const tones = {
-    green: 'bg-success/10 text-success-dark',
-    red: 'bg-error/10 text-error-dark',
-    amber: 'bg-warning/10 text-warning-dark',
-    blue: 'bg-info/10 text-info-dark',
-    gray: 'bg-text-muted/10 text-text-muted',
-  };
-  return (
-    <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tones[tone]}`}>
-      {children}
-    </span>
-  );
-}
 
 function verificationTone(status) {
   if (status === 'verified') return 'green';
