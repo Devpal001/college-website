@@ -83,7 +83,7 @@ function Admissions() {
           <h2 className="text-2xl font-bold text-text-main mb-6 text-center">Apply Now</h2>
 
           {success ? (
-            <p className="text-green-600 text-center font-medium">
+            <p className="text-success-dark text-center font-medium">
               Application submitted! We'll be in touch soon.
             </p>
           ) : (
@@ -148,7 +148,7 @@ function Admissions() {
                 />
               </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-error text-sm">{error}</p>}
 
               <button
                 type="submit"

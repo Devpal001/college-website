@@ -22,6 +22,16 @@ export default function Gallery() {
     setSelectedImage(null);
   };
 
+  // Close the lightbox with the Escape key.
+  useEffect(() => {
+    if (!selectedImage) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedImage]);
+
   return (
     <div className="min-h-screen bg-bg-soft">
       {/* Header */}
@@ -42,7 +52,7 @@ export default function Gallery() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 selectedCategory === category.id
                   ? 'bg-primary text-white shadow-soft'
-                  : 'bg-surface text-text-main hover:bg-bg-soft border border-gray-200'
+                  : 'bg-surface text-text-main hover:bg-bg-soft border border-text-muted/20'
               }`}
             >
               {category.name}
@@ -99,12 +109,15 @@ export default function Gallery() {
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={closeModal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedImage.title}
         >
           <div className="relative max-w-4xl max-h-[90vh] w-full">
             {/* Close button */}
             <button
               onClick={closeModal}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
+              className="absolute -top-12 right-0 text-white hover:text-white/80 transition"
               aria-label="Close modal"
             >
               <X size={32} />

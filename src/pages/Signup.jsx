@@ -32,10 +32,14 @@ function Signup() {
 
         <form onSubmit={handleSignup} className="space-y-4 text-left">
           <div>
-            <label className="text-sm text-text-muted block mb-1">Email</label>
+            <label htmlFor="signup-email" className="text-sm text-text-muted block mb-1">
+              Email
+            </label>
             <input
+              id="signup-email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -43,10 +47,15 @@ function Signup() {
             />
           </div>
           <div>
-            <label className="text-sm text-text-muted block mb-1">Password</label>
+            <label htmlFor="signup-password" className="text-sm text-text-muted block mb-1">
+              Password
+            </label>
             <input
+              id="signup-password"
               type="password"
               required
+              minLength={6}
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 6 characters"
@@ -54,7 +63,11 @@ function Signup() {
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (
+            <p role="alert" className="text-error text-sm">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"

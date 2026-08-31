@@ -70,10 +70,10 @@ function Contact() {
             </div>
 
             {status === 'success' && (
-              <p className="text-green-600 text-sm">Message sent! We'll get back to you soon.</p>
+              <p className="text-success-dark text-sm">Message sent! We'll get back to you soon.</p>
             )}
             {status === 'error' && (
-              <p className="text-red-500 text-sm">Something went wrong. Please try again.</p>
+              <p className="text-error text-sm">Something went wrong. Please try again.</p>
             )}
 
             <button

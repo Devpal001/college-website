@@ -32,10 +32,14 @@ function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
-            <label className="text-sm text-text-muted block mb-1">Email</label>
+            <label htmlFor="login-email" className="text-sm text-text-muted block mb-1">
+              Email
+            </label>
             <input
+              id="login-email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -43,10 +47,14 @@ function Login() {
             />
           </div>
           <div>
-            <label className="text-sm text-text-muted block mb-1">Password</label>
+            <label htmlFor="login-password" className="text-sm text-text-muted block mb-1">
+              Password
+            </label>
             <input
+              id="login-password"
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Your password"
@@ -54,7 +62,11 @@ function Login() {
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (
+            <p role="alert" className="text-error text-sm">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"

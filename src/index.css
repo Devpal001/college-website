@@ -14,10 +14,10 @@
   /* Semantic colors */
   --color-success: #10B981;
   --color-success-light: #34D399;
-  --color-success-dark: #059669;
+  --color-success-dark: #047857;
   --color-warning: #F59E0B;
   --color-warning-light: #FBBF24;
-  --color-warning-dark: #D97706;
+  --color-warning-dark: #B45309;
   --color-error: #EF4444;
   --color-error-light: #F87171;
   --color-error-dark: #DC2626;
@@ -590,6 +590,14 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
+/* Neutral badge — for categories/metadata that are NOT statuses.
+   Keeps color meaning reserved for success/warning/error/info. */
+.badge-neutral {
+  background-color: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  color: var(--color-text-muted);
+  border: 1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+}
+
 /* Status indicators */
 .status-dot {
   width: 8px;
@@ -602,3 +610,64 @@ body {
 .status-dot-warning { background-color: var(--color-warning); }
 .status-dot-error { background-color: var(--color-error); }
 .status-dot-info { background-color: var(--color-info); }
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Visible keyboard focus for every interactive element.
+   Uses :focus-visible so mouse/touch clicks stay clean. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect users who prefer reduced motion (WCAG 2.2 / design doc §21):
+   disable decorative animation, keep loading spin/pulse visible. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .scroll-animate,
+  .scroll-animate-left,
+  .scroll-animate-right,
+  .scroll-animate-scale {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .stagger-1, .stagger-2, .stagger-3,
+  .stagger-4, .stagger-5, .stagger-6 {
+    transition-delay: 0s;
+  }
+
+  .fade-in {
+    animation: none;
+  }
+
+  .mobile-menu {
+    animation: none;
+  }
+
+  .card-hover:hover,
+  .card-interactive:hover,
+  .card-interactive:active {
+    transform: none;
+  }
+
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    transform: none;
+  }
+
+  .ticker-track {
+    animation: none;
+  }
+
+  .animate-bounce {
+    animation: none;
+  }
+}

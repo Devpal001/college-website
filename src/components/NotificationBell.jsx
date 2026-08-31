@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -76,11 +77,11 @@ export default function NotificationBell() {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'normal': return 'bg-blue-500';
-      case 'low': return 'bg-gray-500';
-      default: return 'bg-blue-500';
+      case 'critical': return 'bg-error';
+      case 'high': return 'bg-warning';
+      case 'normal': return 'bg-info';
+      case 'low': return 'bg-text-muted';
+      default: return 'bg-info';
     }
   };
 
@@ -118,6 +119,7 @@ export default function NotificationBell() {
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-full hover:bg-bg-soft transition-colors"
         aria-label="Notifications"
+        aria-expanded={isOpen}
       >
         <Bell className="w-6 h-6 text-text-main" />
         {unreadCount > 0 && (
@@ -133,8 +135,8 @@ export default function NotificationBell() {
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-2 w-96 bg-surface rounded-soft-lg shadow-soft border border-black/5 z-50 max-h-[500px] overflow-hidden">
-            <div className="p-4 border-b border-black/5 flex items-center justify-between">
+          <div className="absolute right-0 top-full mt-2 w-96 bg-surface rounded-soft-lg shadow-soft border border-text-muted/15 z-50 max-h-[500px] overflow-hidden">
+            <div className="p-4 border-b border-text-muted/15 flex items-center justify-between">
               <h3 className="font-semibold text-text-main">Notifications</h3>
               {unreadCount > 0 && (
                 <button
@@ -160,7 +162,7 @@ export default function NotificationBell() {
                 notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 border-b border-black/5 hover:bg-bg-soft transition-colors ${
+                    className={`p-4 border-b border-text-muted/15 hover:bg-bg-soft transition-colors ${
                       !notification.read ? 'bg-bg-soft/50' : ''
                     }`}
                   >
@@ -182,14 +184,16 @@ export default function NotificationBell() {
                                 onClick={() => markAsRead(notification.id)}
                                 className="text-text-muted hover:text-primary transition-colors"
                                 title="Mark as read"
+                                aria-label="Mark as read"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
                             )}
                             <button
                               onClick={() => deleteNotification(notification.id)}
-                              className="text-text-muted hover:text-red-500 transition-colors"
+                              className="text-text-muted hover:text-error transition-colors"
                               title="Delete"
+                               aria-label="Delete notification"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -208,14 +212,14 @@ export default function NotificationBell() {
               )}
             </div>
 
-            <div className="p-3 border-t border-black/5 text-center">
-              <a
-                href="/notifications"
+            <div className="p-3 border-t border-text-muted/15 text-center">
+              <Link
+                to="/notifications"
                 className="text-sm text-primary hover:underline"
                 onClick={() => setIsOpen(false)}
               >
                 View all notifications
-              </a>
+              </Link>
             </div>
           </div>
         </>

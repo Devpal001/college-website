@@ -41,7 +41,11 @@ export default function NewsTicker({ items }) {
   const looped = [...titles, ...titles];
 
   return (
-    <div className="w-full flex items-stretch bg-navbar shadow-soft rounded-full overflow-hidden">
+    <div
+      className="w-full flex items-stretch bg-navbar shadow-soft rounded-full overflow-hidden"
+      role="region"
+      aria-label="Latest news"
+    >
       <div className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full shrink-0 z-10 shadow-soft">
         <Megaphone size={16} />
         <span className="text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
@@ -63,6 +67,7 @@ export default function NewsTicker({ items }) {
           {looped.map((item, i) => (
             <span
               key={i}
+              aria-hidden={i >= titles.length}
               className="text-sm text-text-main font-medium px-8 py-2.5 flex items-center gap-2"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />

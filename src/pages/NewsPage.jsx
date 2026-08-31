@@ -19,18 +19,18 @@ const CATEGORIES = [
 ];
 
 const CATEGORY_STYLES = {
-  urgent: 'bg-red-100 text-red-700',
-  exam: 'bg-amber-100 text-amber-700',
-  admission: 'bg-blue-100 text-blue-700',
-  placement: 'bg-emerald-100 text-emerald-700',
+  urgent: 'bg-error/10 text-error-dark',
+  exam: 'bg-warning/10 text-warning-dark',
+  admission: 'bg-info/10 text-info-dark',
+  placement: 'bg-success/10 text-success-dark',
   result: 'bg-violet-100 text-violet-700',
   event: 'bg-pink-100 text-pink-700',
   scholarship: 'bg-teal-100 text-teal-700',
-  holiday: 'bg-orange-100 text-orange-700',
+  holiday: 'bg-warning/10 text-warning-dark',
 };
 
 function categoryBadgeClass(category) {
-  return CATEGORY_STYLES[category] || 'bg-gray-100 text-gray-600';
+  return CATEGORY_STYLES[category] || 'bg-text-muted/10 text-text-muted';
 }
 
 function formatDate(value) {
@@ -224,7 +224,7 @@ function NewsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search news…"
-                className="pl-8 pr-3 py-2 text-sm rounded-soft bg-surface border border-black/5 focus:outline-none focus:ring-2 focus:ring-primary/30 w-44 md:w-56"
+                className="pl-8 pr-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-44 md:w-56"
               />
             </div>
 
@@ -244,7 +244,7 @@ function NewsPage() {
       <section className="max-w-6xl mx-auto px-4 md:px-8 pb-16">
         {/* Error */}
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-soft p-4 text-sm mb-4">
+          <div className="bg-error/10 text-error-dark rounded-soft p-4 text-sm mb-4">
             {error} — please try again.
           </div>
         )}

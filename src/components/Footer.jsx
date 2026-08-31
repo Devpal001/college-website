@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const linkGroups = [
   {
     title: "Academics",
@@ -54,7 +56,7 @@ function Footer() {
   return (
     <footer className="w-full bg-surface shadow-soft mt-16 rounded-t-soft-lg text-text-muted">
       {/* Link groups */}
-      <div className="max-w-6xl mx-auto px-6 pt-10 pb-8 grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-black/5">
+      <div className="max-w-6xl mx-auto px-6 pt-10 pb-8 grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-text-muted/15">
         {linkGroups.map((group) => (
           <div key={group.title}>
             <h4 className="font-semibold text-text-main text-sm uppercase tracking-wide mb-3">
@@ -63,12 +65,12 @@ function Footer() {
             <ul className="space-y-2 text-sm">
               {group.links.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="hover:text-primary transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -98,7 +100,7 @@ function Footer() {
         </div>
       </div>
 
-      <div className="text-center text-xs text-gray-400 pb-6">
+      <div className="text-center text-xs text-text-muted pb-6">
         © {new Date().getFullYear()} MBSCET Jammu. All rights reserved.
       </div>
     </footer>

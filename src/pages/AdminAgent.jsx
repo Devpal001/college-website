@@ -5,11 +5,11 @@ import { api } from '../lib/api';
 
 function Badge({ tone = 'gray', children }) {
   const tones = {
-    green: 'bg-emerald-100 text-emerald-700',
-    red: 'bg-red-100 text-red-700',
-    amber: 'bg-amber-100 text-amber-700',
-    blue: 'bg-blue-100 text-blue-700',
-    gray: 'bg-gray-100 text-gray-600',
+    green: 'bg-success/10 text-success-dark',
+    red: 'bg-error/10 text-error-dark',
+    amber: 'bg-warning/10 text-warning-dark',
+    blue: 'bg-info/10 text-info-dark',
+    gray: 'bg-text-muted/10 text-text-muted',
   };
   return (
     <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tones[tone]}`}>
@@ -141,8 +141,8 @@ export default function AdminAgent() {
           deduplicates and classifies them for your review.
         </p>
 
-        {error && <div className="bg-red-50 text-red-700 rounded-soft p-3 text-sm mb-4">{error}</div>}
-        {notice && <div className="bg-emerald-50 text-emerald-700 rounded-soft p-3 text-sm mb-4">{notice}</div>}
+        {error && <div className="bg-error/10 text-error-dark rounded-soft p-3 text-sm mb-4">{error}</div>}
+        {notice && <div className="bg-success/10 text-success-dark rounded-soft p-3 text-sm mb-4">{notice}</div>}
 
         {/* Status cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -158,7 +158,7 @@ export default function AdminAgent() {
           </div>
           <div className="bg-navbar shadow-soft rounded-soft-lg p-4">
             <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Pending review</p>
-            <p className="font-bold text-amber-600">{status?.pendingReview ?? 0}</p>
+            <p className="font-bold text-warning-dark">{status?.pendingReview ?? 0}</p>
           </div>
           <div className="bg-navbar shadow-soft rounded-soft-lg p-4">
             <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Active sources</p>
@@ -251,16 +251,16 @@ export default function AdminAgent() {
                       </span>
                     )}
                     {run.status === 'failed' && (
-                      <span className="text-xs text-red-600 truncate max-w-52">{run.error || 'failed'}</span>
+                      <span className="text-xs text-error-dark truncate max-w-52">{run.error || 'failed'}</span>
                     )}
                   </button>
 
                   {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-black/5 pt-3">
+                    <div className="px-4 pb-4 border-t border-text-muted/15 pt-3">
                       {detailLoading ? (
                         <p className="text-xs text-text-muted animate-pulse">Loading details…</p>
                       ) : runDetail?.error ? (
-                        <p className="text-xs text-red-600">{runDetail.error}</p>
+                        <p className="text-xs text-error-dark">{runDetail.error}</p>
                       ) : (
                         <>
                           <p className="text-xs text-text-muted mb-2">

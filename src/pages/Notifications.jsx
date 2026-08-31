@@ -17,15 +17,15 @@ const PREFERENCE_OPTIONS = [
 function getPriorityColor(priority) {
   switch (priority) {
     case 'critical':
-      return 'bg-red-500';
+      return 'bg-error';
     case 'high':
-      return 'bg-orange-500';
+      return 'bg-warning';
     case 'normal':
-      return 'bg-blue-500';
+      return 'bg-info';
     case 'low':
-      return 'bg-gray-500';
+      return 'bg-text-muted';
     default:
-      return 'bg-blue-500';
+      return 'bg-info';
   }
 }
 
@@ -272,7 +272,7 @@ export default function Notifications() {
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-700 rounded-soft p-4 mb-4 text-sm">
+          <div className="bg-error/10 text-error-dark rounded-soft p-4 mb-4 text-sm">
             {error}
           </div>
         )}
@@ -365,7 +365,7 @@ export default function Notifications() {
                           className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
                           title="Delete"
                         >
-                          <X className="w-5 h-5 text-text-muted hover:text-red-500" />
+                          <X className="w-5 h-5 text-text-muted hover:text-error" />
                         </button>
                       </div>
                     </div>
@@ -378,8 +378,13 @@ export default function Notifications() {
 
         {showPreferences && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-surface rounded-soft-lg shadow-soft w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-black/5 flex items-center justify-between">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Notification preferences"
+              className="bg-surface rounded-soft-lg shadow-soft w-full max-w-md max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-text-muted/15 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-text-main">
                   Notification Preferences
                 </h2>
@@ -388,6 +393,7 @@ export default function Notifications() {
                   type="button"
                   onClick={() => setShowPreferences(false)}
                   className="p-2 hover:bg-bg-soft rounded-soft transition-colors"
+                  aria-label="Close preferences"
                 >
                   <X className="w-5 h-5 text-text-muted" />
                 </button>
@@ -418,7 +424,7 @@ export default function Notifications() {
                             className="sr-only peer"
                           />
 
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+                          <div className="w-11 h-6 bg-text-muted/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-text-muted/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                         </label>
                       </div>
                     ))}
@@ -426,7 +432,7 @@ export default function Notifications() {
                 )}
               </div>
 
-              <div className="p-6 border-t border-black/5 flex justify-end gap-3">
+              <div className="p-6 border-t border-text-muted/15 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowPreferences(false)}

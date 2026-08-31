@@ -4,7 +4,7 @@ import logo from '../assets/mbslogo.png';
 import NewsTicker from './NewsTicker';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Menu, X, Megaphone, Home, BookOpen, Building2, Bot } from 'lucide-react';
+import { Sun, Moon, Menu, X, Images, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
 const lightColors = {
   '--color-primary': '#353084',
@@ -47,7 +47,15 @@ const navLinks = [
 
 function Navbar() {
   const location = useLocation();
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mbscet-theme');
+      if (saved) return saved === 'dark';
+    } catch {
+      // localStorage unavailable — fall through to system preference
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
+  });
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,6 +65,11 @@ function Navbar() {
     Object.entries(colors).forEach(([key, value]) => {
       document.documentElement.style.setProperty(key, value);
     });
+    try {
+      localStorage.setItem('mbscet-theme', darkMode ? 'dark' : 'light');
+    } catch {
+      // ignore storage errors — theme still applies for this session
+    }
   }, [darkMode]);
 
   useEffect(() => {
@@ -184,6 +197,8 @@ function Navbar() {
             onClick={() => setMenuOpen(!menuOpen)}
             className="w-9 h-9 rounded-full bg-navbar shadow-soft flex items-center justify-center active:shadow-inset transition"
             aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
           >
             {menuOpen ? <X className="text-primary" size={18} /> : <Menu className="text-primary" size={18} />}
           </button>
@@ -199,11 +214,21 @@ function Navbar() {
       <div className="hidden md:flex justify-center">
         <nav className="bg-navbar shadow-soft rounded-full px-8 py-3">
           <ul className="flex gap-8 text-text-main font-medium text-sm">
-            {navLinks.map((link) => (
-              <li key={link.href} className="nav-link hover:text-primary transition">
-                <Link to={link.href}>{link.label}</Link>
-              </li>
-            ))}
+            {navLinks.map((link) => {
+              const active = location.pathname === link.href;
+              return (
+                <li
+                  key={link.href}
+                  className={`nav-link transition ${
+                    active ? 'text-primary font-semibold' : 'hover:text-primary'
+                  }`}
+                >
+                  <Link to={link.href} aria-current={active ? 'page' : undefined}>
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </div>
@@ -211,7 +236,7 @@ function Navbar() {
       {/* Mobile slide-down menu */}
       {menuOpen && (
         <div className="md:hidden px-6 mt-2">
-          <nav className="mobile-menu bg-navbar shadow-soft rounded-soft-lg px-5 py-4">
+          <nav id="mobile-menu" className="mobile-menu bg-navbar shadow-soft rounded-soft-lg px-5 py-4">
             <ul className="flex flex-col gap-3 text-text-main font-medium text-sm">
               {navLinks.map((link) => (
                 <li key={link.href}>
@@ -220,7 +245,7 @@ function Navbar() {
                   </Link>
                 </li>
               ))}
-              <li className="border-t border-black/10 pt-3">
+              <li className="border-t border-text-muted/25 pt-3">
                 {session ? (
                   <button
                     onClick={handleLogout}
@@ -245,7 +270,7 @@ function Navbar() {
       </div>
 
       {/* Mobile bottom navigation bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-navbar border-t border-black/10 z-50">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-navbar border-t border-text-muted/25 z-50">
         <div className="flex justify-around items-center py-3">
           <Link
             to="/"
@@ -268,14 +293,19 @@ function Navbar() {
             className={`flex flex-col items-center gap-1 ${location.pathname === '/gallery' ? 'text-primary' : 'text-text-muted'}`}
             onClick={() => setMenuOpen(false)}
           >
-            <Megaphone size={20} />
+            <Images size={20} />
             <span className="text-xs">Gallery</span>
           </Link>
           {session && (
-            <div className="flex flex-col items-center gap-1 text-primary">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('mbscet:open-ai-assistant'))}
+              className="flex flex-col items-center gap-1 text-primary"
+              aria-label="Open AI assistant"
+            >
               <Bot size={20} />
               <span className="text-xs font-medium">AI</span>
-            </div>
+            </button>
           )}
           <Link
             to="/admissions"

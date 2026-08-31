@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { api } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
@@ -27,21 +27,27 @@ const ASSESSMENT_TYPES = [
   'other',
 ];
 
+// Status chips use semantic tokens so they adapt to light/dark mode
+// and keep success/warning/error/info meaning consistent app-wide.
 const STATUS_STYLES = {
-  present: 'bg-green-100 text-green-700',
-  absent: 'bg-red-100 text-red-700',
-  late: 'bg-amber-100 text-amber-700',
-  excused: 'bg-blue-100 text-blue-700',
+  present: 'bg-success/10 text-success-dark',
+  absent: 'bg-error/10 text-error-dark',
+  late: 'bg-warning/10 text-warning-dark',
+  excused: 'bg-info/10 text-info-dark',
 };
 
+// Assessment types are categories, not statuses - neutral chips keep
+// color meaning reserved for status semantics (design system section 4).
 const TYPE_STYLES = {
-  assignment: 'bg-blue-100 text-blue-700',
-  quiz: 'bg-purple-100 text-purple-700',
-  midterm: 'bg-amber-100 text-amber-700',
-  practical: 'bg-cyan-100 text-cyan-700',
-  final: 'bg-red-100 text-red-700',
-  other: 'bg-gray-100 text-gray-700',
+  assignment: 'bg-text-muted/10 text-text-muted',
+  quiz: 'bg-text-muted/10 text-text-muted',
+  midterm: 'bg-text-muted/10 text-text-muted',
+  practical: 'bg-text-muted/10 text-text-muted',
+  final: 'bg-text-muted/10 text-text-muted',
+  other: 'bg-text-muted/10 text-text-muted',
 };
+
+const CHIP_FALLBACK = 'bg-text-muted/10 text-text-muted';
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
@@ -62,10 +68,16 @@ function SectionTitle({ children }) {
 }
 
 function SelectField({ label, value, onChange, options, placeholder, disabled }) {
+  const id = useId();
   return (
     <div>
-      {label && <label className="text-sm text-text-muted block mb-1">{label}</label>}
+      {label && (
+        <label htmlFor={id} className="text-sm text-text-muted block mb-1">
+          {label}
+        </label>
+      )}
       <select
+        id={id}
         value={value}
         onChange={onChange}
         disabled={disabled}
@@ -291,7 +303,7 @@ function TeacherDashboard() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-6">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
-          <p className="text-red-500 font-medium mb-2">Unable to load your dashboard</p>
+          <p className="text-error font-medium mb-2">Unable to load your dashboard</p>
           <p className="text-sm text-text-muted">{error}</p>
         </div>
       </div>
@@ -338,10 +350,10 @@ function TeacherDashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-        <StatCard icon={BookOpen} label="Assigned Classes" value={classes.length} accent="bg-blue-100 text-blue-700" />
-        <StatCard icon={Calendar} label="Schedule Items" value={data.schedule?.length ?? 0} accent="bg-purple-100 text-purple-700" />
-        <StatCard icon={ClipboardCheck} label="Sessions" value={data.sessionsCount ?? 0} accent="bg-green-100 text-green-700" />
-        <StatCard icon={Award} label="Assessments" value={assessments.length} accent="bg-amber-100 text-amber-700" />
+        <StatCard icon={BookOpen} label="Assigned Classes" value={classes.length} accent="bg-info/10 text-info-dark" />
+        <StatCard icon={Calendar} label="Schedule Items" value={data.schedule?.length ?? 0} accent="bg-text-muted/10 text-text-muted" />
+        <StatCard icon={ClipboardCheck} label="Sessions" value={data.sessionsCount ?? 0} accent="bg-success/10 text-success-dark" />
+        <StatCard icon={Award} label="Assessments" value={assessments.length} accent="bg-warning/10 text-warning-dark" />
       </div>
 
       {/* Tabs */}
@@ -450,7 +462,7 @@ function TeacherDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-black/10">
+                    <tr className="text-left text-text-muted border-b border-text-muted/25">
                       <th className="py-2 pr-4">Subject</th>
                       <th className="py-2 pr-4">Code</th>
                       <th className="py-2 pr-4">Section</th>
@@ -462,13 +474,13 @@ function TeacherDashboard() {
                     {classes.map((c) => {
                       const ts = c.teacherSubject;
                       return (
-                        <tr key={c.value} className="border-b border-black/5">
+                        <tr key={c.value} className="border-b border-text-muted/15">
                           <td className="py-2 pr-4 text-text-main">{ts.subjects?.name || '—'}</td>
                           <td className="py-2 pr-4 text-text-muted">{ts.subjects?.code || '—'}</td>
                           <td className="py-2 pr-4 text-text-main">{ts.sections?.name || '—'}</td>
                           <td className="py-2 pr-4 text-text-muted">{ts.semesters?.name || '—'}</td>
                           <td className="py-2">
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success-dark">
                               Active
                             </span>
                           </td>
@@ -523,8 +535,9 @@ function TeacherDashboard() {
 
             {attMessage && (
               <p
+                role="status"
                 className={`mt-4 text-sm ${
-                  attMessage.type === 'success' ? 'text-green-600' : 'text-red-500'
+                  attMessage.type === 'success' ? 'text-success-dark' : 'text-error'
                 }`}
               >
                 {attMessage.text}
@@ -541,7 +554,7 @@ function TeacherDashboard() {
                   <button
                     onClick={submitAttendance}
                     disabled={attLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
                   >
                     {attLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
                     Save Attendance
@@ -550,7 +563,7 @@ function TeacherDashboard() {
                 <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-surface">
-                      <tr className="text-left text-text-muted border-b border-black/10">
+                      <tr className="text-left text-text-muted border-b border-text-muted/25">
                         <th className="py-2 pr-4">Student</th>
                         <th className="py-2 pr-4">Enrollment</th>
                         {ATTENDANCE_STATUSES.map((s) => (
@@ -560,7 +573,7 @@ function TeacherDashboard() {
                     </thead>
                     <tbody>
                       {attStudents.map((s) => (
-                        <tr key={s.id} className="border-b border-black/5">
+                        <tr key={s.id} className="border-b border-text-muted/15">
                           <td className="py-2 pr-4 text-text-main">
                             {s.profiles?.full_name || s.enrollment_number}
                           </td>
@@ -637,8 +650,9 @@ function TeacherDashboard() {
 
             {markMessage && (
               <p
+                role="status"
                 className={`mt-4 text-sm ${
-                  markMessage.type === 'success' ? 'text-green-600' : 'text-red-500'
+                  markMessage.type === 'success' ? 'text-success-dark' : 'text-error'
                 }`}
               >
                 {markMessage.text}
@@ -654,7 +668,7 @@ function TeacherDashboard() {
                   <button
                     onClick={submitMarks}
                     disabled={markLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
                   >
                     {markLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
                     Save Marks
@@ -663,7 +677,7 @@ function TeacherDashboard() {
                 <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-surface">
-                      <tr className="text-left text-text-muted border-b border-black/10">
+                      <tr className="text-left text-text-muted border-b border-text-muted/25">
                         <th className="py-2 pr-4">Student</th>
                         <th className="py-2 pr-4">Enrollment</th>
                         <th className="py-2">Marks Obtained</th>
@@ -674,7 +688,7 @@ function TeacherDashboard() {
                         const assessment = assessments.find((a) => a.id === markAssessment);
                         const max = assessment?.max_marks ?? 0;
                         return (
-                          <tr key={s.id} className="border-b border-black/5">
+                          <tr key={s.id} className="border-b border-text-muted/15">
                             <td className="py-2 pr-4 text-text-main">
                               {s.profiles?.full_name || s.enrollment_number}
                             </td>
@@ -788,8 +802,9 @@ function TeacherDashboard() {
 
                 {newAssessMsg && (
                   <p
+                    role="status"
                     className={`text-sm ${
-                      newAssessMsg.type === 'success' ? 'text-green-600' : 'text-red-500'
+                      newAssessMsg.type === 'success' ? 'text-success-dark' : 'text-error'
                     }`}
                   >
                     {newAssessMsg.text}
@@ -813,7 +828,7 @@ function TeacherDashboard() {
                 <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-surface">
-                      <tr className="text-left text-text-muted border-b border-black/10">
+                      <tr className="text-left text-text-muted border-b border-text-muted/25">
                         <th className="py-2 pr-4">Title</th>
                         <th className="py-2 pr-4">Subject</th>
                         <th className="py-2 pr-4">Type</th>
@@ -822,13 +837,13 @@ function TeacherDashboard() {
                     </thead>
                     <tbody>
                       {assessments.map((a) => (
-                        <tr key={a.id} className="border-b border-black/5">
+                        <tr key={a.id} className="border-b border-text-muted/15">
                           <td className="py-2 pr-4 text-text-main">{a.title}</td>
                           <td className="py-2 pr-4 text-text-muted">{a.subjects?.name || '—'}</td>
                           <td className="py-2 pr-4">
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                TYPE_STYLES[a.type] || 'bg-gray-100 text-gray-700'
+                                TYPE_STYLES[a.type] || CHIP_FALLBACK
                               }`}
                             >
                               {a.type}
@@ -854,7 +869,7 @@ function TeacherDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-black/10">
+                    <tr className="text-left text-text-muted border-b border-text-muted/25">
                       <th className="py-2 pr-4">Day</th>
                       <th className="py-2 pr-4">Time</th>
                       <th className="py-2 pr-4">Subject</th>
@@ -867,7 +882,7 @@ function TeacherDashboard() {
                       data.schedule
                         .filter((t) => t.day_of_week === day)
                         .map((t) => (
-                          <tr key={t.id} className="border-b border-black/5">
+                          <tr key={t.id} className="border-b border-text-muted/15">
                             <td className="py-2 pr-4 capitalize text-text-main">{day}</td>
                             <td className="py-2 pr-4 text-text-main">
                               {String(t.start_time).slice(0, 5)} – {String(t.end_time).slice(0, 5)}

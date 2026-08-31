@@ -43,17 +43,17 @@ const SOURCE_CATEGORIES = ['general', 'exam', 'admission', 'placement', 'academi
 const VERIFICATION_STATUSES = ['pending', 'verified', 'rejected', 'flagged'];
 
 const inputCls =
-  'px-3 py-2 text-sm rounded-soft bg-surface border border-black/5 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full';
+  'px-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full';
 
 const labelCls = 'block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1';
 
 function Badge({ tone = 'gray', children }) {
   const tones = {
-    green: 'bg-emerald-100 text-emerald-700',
-    red: 'bg-red-100 text-red-700',
-    amber: 'bg-amber-100 text-amber-700',
-    blue: 'bg-blue-100 text-blue-700',
-    gray: 'bg-gray-100 text-gray-600',
+    green: 'bg-success/10 text-success-dark',
+    red: 'bg-error/10 text-error-dark',
+    amber: 'bg-warning/10 text-warning-dark',
+    blue: 'bg-info/10 text-info-dark',
+    gray: 'bg-text-muted/10 text-text-muted',
   };
   return (
     <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tones[tone]}`}>
@@ -86,12 +86,12 @@ function Field({ label, children }) {
 
 function ErrorNote({ message }) {
   if (!message) return null;
-  return <div className="bg-red-50 text-red-700 rounded-soft p-3 text-sm">{message}</div>;
+  return <div className="bg-error/10 text-error-dark rounded-soft p-3 text-sm">{message}</div>;
 }
 
 function OkNote({ message }) {
   if (!message) return null;
-  return <div className="bg-emerald-50 text-emerald-700 rounded-soft p-3 text-sm">{message}</div>;
+  return <div className="bg-success/10 text-success-dark rounded-soft p-3 text-sm">{message}</div>;
 }
 
 function ItemsTab() {
@@ -355,24 +355,24 @@ function ItemsTab() {
                       </button>
                     )}
                     {item.verification_status !== 'verified' && (
-                      <button onClick={() => verify(item.id, 'verified')} className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-soft hover:opacity-80 transition">
+                      <button onClick={() => verify(item.id, 'verified')} className="flex items-center gap-1 bg-success/10 text-success-dark px-3 py-1.5 rounded-soft hover:opacity-80 transition">
                         <CheckCircle2 size={13} /> Verify
                       </button>
                     )}
                     {item.verification_status !== 'rejected' && (
-                      <button onClick={() => verify(item.id, 'rejected')} className="flex items-center gap-1 bg-red-50 text-red-700 px-3 py-1.5 rounded-soft hover:opacity-80 transition">
+                      <button onClick={() => verify(item.id, 'rejected')} className="flex items-center gap-1 bg-error/10 text-error-dark px-3 py-1.5 rounded-soft hover:opacity-80 transition">
                         <XCircle size={13} /> Reject
                       </button>
                     )}
                     {item.verification_status !== 'flagged' && (
-                      <button onClick={() => verify(item.id, 'flagged')} className="flex items-center gap-1 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-soft hover:opacity-80 transition">
+                      <button onClick={() => verify(item.id, 'flagged')} className="flex items-center gap-1 bg-warning/10 text-warning-dark px-3 py-1.5 rounded-soft hover:opacity-80 transition">
                         <Flag size={13} /> Flag
                       </button>
                     )}
                     <button onClick={() => startEdit(item)} className="flex items-center gap-1 bg-surface px-3 py-1.5 rounded-soft hover:text-primary transition">
                       <Pencil size={13} /> Edit
                     </button>
-                    <button onClick={() => remove(item)} className="flex items-center gap-1 bg-red-50 text-red-700 px-3 py-1.5 rounded-soft hover:opacity-80 transition">
+                    <button onClick={() => remove(item)} className="flex items-center gap-1 bg-error/10 text-error-dark px-3 py-1.5 rounded-soft hover:opacity-80 transition">
                       <Trash2 size={13} /> Delete
                     </button>
                   </div>
@@ -538,10 +538,10 @@ function SourcesTab() {
               <Badge tone="blue">{s.type}</Badge>
               <Badge>{s.category || 'general'}</Badge>
               <span className="text-xs text-text-muted">every {s.check_frequency_hours}h</span>
-              <button onClick={() => toggleActive(s)} className={`text-xs px-3 py-1.5 rounded-soft transition ${s.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+              <button onClick={() => toggleActive(s)} className={`text-xs px-3 py-1.5 rounded-soft transition ${s.is_active ? 'bg-success/10 text-success-dark' : 'bg-text-muted/10 text-text-muted'}`}>
                 {s.is_active ? 'Active' : 'Inactive'}
               </button>
-              <button onClick={() => remove(s)} className="flex items-center gap-1 text-xs bg-red-50 text-red-700 px-3 py-1.5 rounded-soft hover:opacity-80 transition">
+              <button onClick={() => remove(s)} className="flex items-center gap-1 text-xs bg-error/10 text-error-dark px-3 py-1.5 rounded-soft hover:opacity-80 transition">
                 <Trash2 size={13} /> Delete
               </button>
             </div>

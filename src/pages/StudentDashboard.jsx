@@ -13,21 +13,27 @@ import {
 
 const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
+// Status chips use semantic tokens so they adapt to light/dark mode
+// and keep success/warning/error/info meaning consistent app-wide.
 const STATUS_STYLES = {
-  present: 'bg-green-100 text-green-700',
-  absent: 'bg-red-100 text-red-700',
-  late: 'bg-amber-100 text-amber-700',
-  excused: 'bg-blue-100 text-blue-700',
+  present: 'bg-success/10 text-success-dark',
+  absent: 'bg-error/10 text-error-dark',
+  late: 'bg-warning/10 text-warning-dark',
+  excused: 'bg-info/10 text-info-dark',
 };
 
+// Assessment types are categories, not statuses - neutral chips keep
+// color meaning reserved for status semantics (design system section 4).
 const TYPE_STYLES = {
-  assignment: 'bg-blue-100 text-blue-700',
-  quiz: 'bg-purple-100 text-purple-700',
-  midterm: 'bg-amber-100 text-amber-700',
-  practical: 'bg-cyan-100 text-cyan-700',
-  final: 'bg-red-100 text-red-700',
-  other: 'bg-gray-100 text-gray-700',
+  assignment: 'bg-text-muted/10 text-text-muted',
+  quiz: 'bg-text-muted/10 text-text-muted',
+  midterm: 'bg-text-muted/10 text-text-muted',
+  practical: 'bg-text-muted/10 text-text-muted',
+  final: 'bg-text-muted/10 text-text-muted',
+  other: 'bg-text-muted/10 text-text-muted',
 };
+
+const CHIP_FALLBACK = 'bg-text-muted/10 text-text-muted';
 
 function StatCard({ icon: Icon, label, value, sub, accent }) {
   return (
@@ -89,7 +95,7 @@ function StudentDashboard() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-6">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
-          <p className="text-red-500 font-medium mb-2">Unable to load your dashboard</p>
+          <p className="text-error font-medium mb-2">Unable to load your dashboard</p>
           <p className="text-sm text-text-muted">{error}</p>
         </div>
       </div>
@@ -143,21 +149,21 @@ function StudentDashboard() {
           label="Attendance"
           value={attendanceSummary?.total ? `${attendanceSummary.percentage}%` : '—'}
           sub={`${attendanceSummary?.presentCount ?? 0}/${attendanceSummary?.total ?? 0} classes attended`}
-          accent="bg-green-100 text-green-700"
+          accent="bg-success/10 text-success-dark"
         />
         <StatCard
           icon={Award}
           label="Overall Marks"
           value={marksSummary?.maxSum ? `${marksSummary.overallPercentage}%` : '—'}
           sub={`${marksSummary?.obtainedSum ?? 0} / ${marksSummary?.maxSum ?? 0} total`}
-          accent="bg-amber-100 text-amber-700"
+          accent="bg-warning/10 text-warning-dark"
         />
         <StatCard
           icon={BookOpen}
           label="Unread Notifications"
           value={data.unreadNotifications ?? 0}
           sub="Latest updates for you"
-          accent="bg-blue-100 text-blue-700"
+          accent="bg-info/10 text-info-dark"
         />
       </div>
 
@@ -271,7 +277,7 @@ function StudentDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-black/10">
+                    <tr className="text-left text-text-muted border-b border-text-muted/25">
                       <th className="py-2 pr-4">Date</th>
                       <th className="py-2 pr-4">Subject</th>
                       <th className="py-2 pr-4">Teacher</th>
@@ -282,7 +288,7 @@ function StudentDashboard() {
                     {data.attendance.map((r) => {
                       const s = r.attendance_sessions;
                       return (
-                        <tr key={r.id} className="border-b border-black/5">
+                        <tr key={r.id} className="border-b border-text-muted/15">
                           <td className="py-2 pr-4 text-text-main">{s?.date || '—'}</td>
                           <td className="py-2 pr-4 text-text-main">
                             {s?.subjects?.name || s?.subject_id || '—'}
@@ -293,7 +299,7 @@ function StudentDashboard() {
                           <td className="py-2">
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                STATUS_STYLES[r.status] || 'bg-gray-100 text-gray-700'
+                                STATUS_STYLES[r.status] || CHIP_FALLBACK
                               }`}
                             >
                               {r.status}
@@ -318,7 +324,7 @@ function StudentDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-black/10">
+                    <tr className="text-left text-text-muted border-b border-text-muted/25">
                       <th className="py-2 pr-4">Assessment</th>
                       <th className="py-2 pr-4">Subject</th>
                       <th className="py-2 pr-4">Type</th>
@@ -328,7 +334,7 @@ function StudentDashboard() {
                   </thead>
                   <tbody>
                     {marksSummary.byAssessment.map((a) => (
-                      <tr key={a.assessment.id} className="border-b border-black/5">
+                      <tr key={a.assessment.id} className="border-b border-text-muted/15">
                         <td className="py-2 pr-4 text-text-main">{a.assessment.title}</td>
                         <td className="py-2 pr-4 text-text-main">
                           {a.assessment.subjects?.name || '—'}
@@ -336,7 +342,7 @@ function StudentDashboard() {
                         <td className="py-2 pr-4">
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              TYPE_STYLES[a.assessment.type] || 'bg-gray-100 text-gray-700'
+                              TYPE_STYLES[a.assessment.type] || CHIP_FALLBACK
                             }`}
                           >
                             {a.assessment.type}
@@ -364,7 +370,7 @@ function StudentDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-black/10">
+                    <tr className="text-left text-text-muted border-b border-text-muted/25">
                       <th className="py-2 pr-4">Day</th>
                       <th className="py-2 pr-4">Time</th>
                       <th className="py-2 pr-4">Subject</th>
@@ -377,7 +383,7 @@ function StudentDashboard() {
                       data.timetable
                         .filter((t) => t.day_of_week === day)
                         .map((t) => (
-                          <tr key={t.id} className="border-b border-black/5">
+                          <tr key={t.id} className="border-b border-text-muted/15">
                             <td className="py-2 pr-4 capitalize text-text-main">{day}</td>
                             <td className="py-2 pr-4 text-text-main">
                               {String(t.start_time).slice(0, 5)} – {String(t.end_time).slice(0, 5)}
