@@ -305,7 +305,7 @@ function NewsPage() {
                     load(page + 1, { append: true })
                   }
                   disabled={loading}
-                  className="bg-primary text-white px-6 py-2.5 rounded-soft shadow-soft hover:bg-primary-dark disabled:opacity-60 transition text-sm font-medium"
+                  className="btn-primary px-6 py-2.5 rounded-soft shadow-soft disabled:opacity-60 text-sm font-medium"
                 >
                   {loading ? 'Loading…' : 'Load more'}
                 </button>

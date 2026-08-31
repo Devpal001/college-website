@@ -14,12 +14,32 @@ function Login() {
     setError('');
     setLoading(true);
 
+    // Basic client-side validation
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      // Provide more specific error messages
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setError('Please confirm your email address before logging in.');
+      } else {
+        setError('Unable to log in. Please check your credentials and try again.');
+      }
     } else {
       navigate('/');
     }
@@ -63,15 +83,15 @@ function Login() {
           </div>
 
           {error && (
-            <p role="alert" className="text-error text-sm">
-              {error}
-            </p>
+            <div role="alert" className="bg-error/10 border border-error/20 rounded-soft p-3">
+              <p className="text-error text-sm font-medium">{error}</p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition w-full"
+            className="btn-primary px-6 py-3 rounded-soft shadow-soft w-full"
           >
             {loading ? 'Logging in...' : 'Log In'}
           </button>

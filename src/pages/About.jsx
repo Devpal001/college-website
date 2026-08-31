@@ -15,17 +15,16 @@ function About() {
       <div className="flex justify-center gap-6 py-4 bg-surface shadow-soft mx-6 md:mx-auto md:max-w-md rounded-full -mt-6 relative z-10">
         <a href="#mission-vision" className="text-sm font-medium text-text-muted hover:text-primary transition">
           Mission & Vision
-          </a>
-          <a href="#stats" className="text-sm font-medium text-text-muted hover:text-primary transition">
-            Stats
-            </a>
-            <a href="#story" className="text-sm font-medium text-text-muted hover:text-primary transition">
-              Our Story
-              </a>
-        </div>
+        </a>
+        <a href="#stats" className="text-sm font-medium text-text-muted hover:text-primary transition">
+          Stats
+        </a>
+        <a href="#story" className="text-sm font-medium text-text-muted hover:text-primary transition">
+          Our Story
+        </a>
+      </div>
       {/* Mission & Vision */}
-      <section id="mission-vision" className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8"></section>
-      <section className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <section id="mission-vision" className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8">
           <h3 className="text-xl font-bold text-text-main mb-3">Our Mission</h3>
           <p className="text-text-muted text-sm">
@@ -71,8 +70,7 @@ function About() {
       </section>
 
       {/* History */}
-      <section id="story" className="px-6 py-16 max-w-3xl mx-auto text-center"></section>
-      <section className="px-6 py-16 max-w-3xl mx-auto text-center">
+      <section id="story" className="px-6 py-16 max-w-3xl mx-auto text-center">
         <h2 className="text-2xl font-bold text-text-main mb-4">Our Story</h2>
         <p className="text-text-muted text-sm leading-relaxed">
           Founded with a vision to make quality education accessible, MBSCET

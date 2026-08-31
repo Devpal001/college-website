@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/mbslogo.png';
 import NewsTicker from './NewsTicker';
 import NotificationBell from './NotificationBell';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sun, Moon, Menu, X, Images, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
 const navLinks = [
@@ -31,6 +31,8 @@ function Navbar() {
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef(null);
+  const menuRef = useRef(null);
 
   // Theme switching: toggle the `dark` class on <html> and persist the
   // choice. All palette values live in src/index.css (:root + html.dark);
@@ -103,6 +105,62 @@ function Navbar() {
     setMenuOpen(false);
   };
 
+  // Handle keyboard navigation for mobile menu
+  const handleMenuKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+  };
+
+  // Focus trap for mobile menu
+  useEffect(() => {
+    if (menuOpen && menuRef.current) {
+      const currentMenuRef = menuRef.current;
+      const focusableElements = currentMenuRef.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      // Small delay to ensure menu is rendered before focusing
+      setTimeout(() => {
+        firstElement?.focus();
+      }, 50);
+
+      const handleTab = (e) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey) {
+            if (document.activeElement === firstElement) {
+              e.preventDefault();
+              lastElement?.focus();
+            }
+          } else {
+            if (document.activeElement === lastElement) {
+              e.preventDefault();
+              firstElement?.focus();
+            }
+          }
+        }
+      };
+
+      currentMenuRef.addEventListener('keydown', handleTab);
+      return () => currentMenuRef.removeEventListener('keydown', handleTab);
+    }
+  }, [menuOpen]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target) && !menuButtonRef.current?.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   return (
     <div className="relative w-full pb-6">
       {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger (mobile) right */}
@@ -167,8 +225,9 @@ function Navbar() {
             {darkMode ? <Sun className="text-primary" size={16} /> : <Moon className="text-primary" size={16} />}
           </button>
           <button
+            ref={menuButtonRef}
             onClick={() => setMenuOpen(!menuOpen)}
-            className="w-9 h-9 rounded-full bg-navbar shadow-soft flex items-center justify-center active:shadow-inset transition"
+            className="w-9 h-9 rounded-full bg-navbar shadow-soft flex items-center justify-center active:shadow-inset transition focus:ring-2 focus:ring-primary/50"
             aria-label="Toggle menu"
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
@@ -193,7 +252,7 @@ function Navbar() {
                 <li
                   key={link.href}
                   className={`nav-link transition ${
-                    active ? 'text-primary font-semibold' : 'hover:text-primary'
+                    active ? 'text-primary font-semibold bg-bg-soft/50 rounded-soft px-3 py-1' : 'hover:text-primary'
                   }`}
                 >
                   <Link to={link.href} aria-current={active ? 'page' : undefined}>
@@ -209,15 +268,32 @@ function Navbar() {
       {/* Mobile slide-down menu */}
       {menuOpen && (
         <div className="md:hidden px-6 mt-2">
-          <nav id="mobile-menu" className="mobile-menu bg-navbar shadow-soft rounded-soft-lg px-5 py-4">
+          <nav
+            ref={menuRef}
+            id="mobile-menu"
+            className="mobile-menu bg-navbar shadow-soft rounded-soft-lg px-5 py-4"
+            onKeyDown={handleMenuKeyDown}
+            role="navigation"
+            aria-label="Mobile navigation"
+          >
             <ul className="flex flex-col gap-3 text-text-main font-medium text-sm">
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link to={link.href} onClick={() => setMenuOpen(false)} className="block py-1 hover:text-primary transition">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              {navLinks.map((link) => {
+                const active = location.pathname === link.href;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      to={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={`block py-1 transition ${
+                        active ? 'text-primary font-semibold bg-bg-soft/50 rounded-soft px-3 py-1' : 'hover:text-primary'
+                      }`}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
               <li className="border-t border-text-muted/25 pt-3">
                 {session ? (
                   <button
@@ -247,24 +323,33 @@ function Navbar() {
         <div className="flex justify-around items-center py-3">
           <Link
             to="/"
-            className={`flex flex-col items-center gap-1 ${location.pathname === '/' ? 'text-primary' : 'text-text-muted'}`}
+            className={`flex flex-col items-center gap-1 transition ${
+              location.pathname === '/' ? 'text-primary font-semibold' : 'text-text-muted'
+            }`}
             onClick={() => setMenuOpen(false)}
+            aria-current={location.pathname === '/' ? 'page' : undefined}
           >
             <Home size={20} />
             <span className="text-xs">Home</span>
           </Link>
           <Link
             to="/departments"
-            className={`flex flex-col items-center gap-1 ${location.pathname === '/departments' ? 'text-primary' : 'text-text-muted'}`}
+            className={`flex flex-col items-center gap-1 transition ${
+              location.pathname === '/departments' ? 'text-primary font-semibold' : 'text-text-muted'
+            }`}
             onClick={() => setMenuOpen(false)}
+            aria-current={location.pathname === '/departments' ? 'page' : undefined}
           >
             <BookOpen size={20} />
             <span className="text-xs">Departments</span>
           </Link>
           <Link
             to="/gallery"
-            className={`flex flex-col items-center gap-1 ${location.pathname === '/gallery' ? 'text-primary' : 'text-text-muted'}`}
+            className={`flex flex-col items-center gap-1 transition ${
+              location.pathname === '/gallery' ? 'text-primary font-semibold' : 'text-text-muted'
+            }`}
             onClick={() => setMenuOpen(false)}
+            aria-current={location.pathname === '/gallery' ? 'page' : undefined}
           >
             <Images size={20} />
             <span className="text-xs">Gallery</span>

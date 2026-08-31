@@ -14,12 +14,32 @@ function Signup() {
     setError('');
     setLoading(true);
 
+    // Basic client-side validation
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({ email, password });
 
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      // Provide more specific error messages
+      if (error.message.includes('already registered')) {
+        setError('An account with this email already exists. Please log in instead.');
+      } else if (error.message.includes('Password')) {
+        setError('Password is too weak. Please use at least 6 characters.');
+      } else {
+        setError('Unable to create account. Please try again later.');
+      }
     } else {
       navigate('/login');
     }
@@ -64,15 +84,15 @@ function Signup() {
           </div>
 
           {error && (
-            <p role="alert" className="text-error text-sm">
-              {error}
-            </p>
+            <div role="alert" className="bg-error/10 border border-error/20 rounded-soft p-3">
+              <p className="text-error text-sm font-medium">{error}</p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition w-full"
+            className="btn-primary px-6 py-3 rounded-soft shadow-soft w-full"
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>

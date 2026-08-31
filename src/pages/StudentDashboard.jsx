@@ -105,7 +105,7 @@ function StudentDashboard() {
           <button
             type="button"
             onClick={loadDashboard}
-            className="bg-primary text-white px-5 py-2 rounded-soft text-sm font-medium hover:bg-primary-dark transition"
+            className="btn-primary px-5 py-2 rounded-soft text-sm font-medium"
           >
             Try Again
           </button>
@@ -190,7 +190,7 @@ function StudentDashboard() {
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
                 active
-                  ? 'bg-primary text-white shadow-soft'
+                  ? 'btn-primary shadow-soft'
                   : 'bg-bg-soft text-text-muted hover:text-primary'
               }`}
             >
@@ -222,7 +222,11 @@ function StudentDashboard() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-text-muted">No attendance records yet.</p>
+                <div className="text-center py-8">
+                  <ClipboardCheck className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted mb-2">No attendance records yet</p>
+                  <p className="text-xs text-text-muted">Attendance will appear here once your teachers submit records.</p>
+                </div>
               )}
             </div>
 
@@ -243,7 +247,11 @@ function StudentDashboard() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-text-muted">No marks recorded yet.</p>
+                <div className="text-center py-8">
+                  <Award className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted mb-2">No marks recorded yet</p>
+                  <p className="text-xs text-text-muted">Marks will appear here once your teachers enter grades.</p>
+                </div>
               )}
             </div>
 
@@ -324,7 +332,11 @@ function StudentDashboard() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">No attendance records yet.</p>
+              <div className="text-center py-8">
+                <ClipboardCheck className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                <p className="text-sm text-text-muted mb-2">No attendance records yet</p>
+                <p className="text-xs text-text-muted">Your attendance records will appear here once submitted.</p>
+              </div>
             )}
           </div>
         )}
@@ -370,7 +382,11 @@ function StudentDashboard() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">No marks recorded yet.</p>
+              <div className="text-center py-8">
+                <Award className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                <p className="text-sm text-text-muted mb-2">No marks recorded yet</p>
+                <p className="text-xs text-text-muted">Your assessment marks will appear here once graded.</p>
+              </div>
             )}
           </div>
         )}
@@ -414,7 +430,11 @@ function StudentDashboard() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">No timetable published yet.</p>
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                <p className="text-sm text-text-muted mb-2">No timetable published yet</p>
+                <p className="text-xs text-text-muted">Your weekly schedule will appear here once published.</p>
+              </div>
             )}
           </div>
         )}

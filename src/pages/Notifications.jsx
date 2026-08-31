@@ -200,7 +200,7 @@ export default function Notifications() {
               <button
                 type="button"
                 onClick={markAllAsRead}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-soft hover:bg-primary-dark transition-colors"
+                className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft"
               >
                 <Check className="w-4 h-4" />
                 Mark all as read
@@ -394,7 +394,7 @@ export default function Notifications() {
                   type="button"
                   onClick={updatePreferences}
                   disabled={!preferences || savingPreferences}
-                  className="px-4 py-2 bg-primary text-white rounded-soft hover:bg-primary-dark disabled:opacity-60 transition-colors"
+                  className="btn-primary px-4 py-2 rounded-soft disabled:opacity-60"
                 >
                   {savingPreferences
                     ? 'Saving...'

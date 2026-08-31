@@ -314,7 +314,7 @@ function TeacherDashboard() {
           <button
             type="button"
             onClick={loadDashboard}
-            className="bg-primary text-white px-5 py-2 rounded-soft text-sm font-medium hover:bg-primary-dark transition"
+            className="btn-primary px-5 py-2 rounded-soft text-sm font-medium"
           >
             Try Again
           </button>
@@ -379,7 +379,7 @@ function TeacherDashboard() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-                active ? 'bg-primary text-white shadow-soft' : 'bg-bg-soft text-text-muted hover:text-primary'
+                active ? 'btn-primary shadow-soft' : 'bg-bg-soft text-text-muted hover:text-primary'
               }`}
             >
               <Icon size={16} />
@@ -406,7 +406,11 @@ function TeacherDashboard() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-text-muted">No classes assigned yet.</p>
+                <div className="text-center py-8">
+                  <BookOpen className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted mb-2">No classes assigned yet</p>
+                  <p className="text-xs text-text-muted">Your assigned classes will appear here.</p>
+                </div>
               )}
             </div>
 
@@ -422,7 +426,11 @@ function TeacherDashboard() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-text-muted">No notifications yet.</p>
+                <div className="text-center py-8">
+                  <Bell className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted mb-2">No notifications yet</p>
+                  <p className="text-xs text-text-muted">College announcements will appear here.</p>
+                </div>
               )}
             </div>
 
@@ -447,13 +455,13 @@ function TeacherDashboard() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setTab('attendance')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition"
+                  className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium"
                 >
                   <ClipboardCheck size={16} /> Mark Attendance
                 </button>
                 <button
                   onClick={() => setTab('marks')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-soft bg-secondary text-white text-sm font-medium hover:opacity-90 transition"
+                  className="btn-action-secondary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium"
                 >
                   <Award size={16} /> Enter Marks
                 </button>
@@ -504,7 +512,11 @@ function TeacherDashboard() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">No classes assigned yet.</p>
+              <div className="text-center py-8">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                <p className="text-sm text-text-muted mb-2">No classes assigned yet</p>
+                <p className="text-xs text-text-muted">Your assigned classes will appear here.</p>
+              </div>
             )}
           </div>
         )}
@@ -539,7 +551,7 @@ function TeacherDashboard() {
                 <button
                   onClick={loadAttendanceStudents}
                   disabled={!attClass || !attDate || attLoading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50 w-full justify-center"
+                  className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50 w-full justify-center"
                 >
                   {attLoading ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                   Load Students
@@ -568,7 +580,7 @@ function TeacherDashboard() {
                   <button
                     onClick={submitAttendance}
                     disabled={attLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
+                    className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50"
                   >
                     {attLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
                     Save Attendance
@@ -654,7 +666,7 @@ function TeacherDashboard() {
                 <button
                   onClick={loadMarksStudents}
                   disabled={!markAssessment || !markClass || markLoading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50 w-full justify-center"
+                  className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50 w-full justify-center"
                 >
                   {markLoading ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                   Load Students
@@ -682,7 +694,7 @@ function TeacherDashboard() {
                   <button
                     onClick={submitMarks}
                     disabled={markLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
+                    className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50"
                   >
                     {markLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
                     Save Marks
@@ -834,7 +846,7 @@ function TeacherDashboard() {
                 <button
                   type="submit"
                   disabled={newAssessBusy}
-                  className="flex items-center gap-2 px-4 py-2 rounded-soft bg-primary text-white text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
+                  className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50"
                 >
                   {newAssessBusy ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
                   Create Assessment
@@ -876,7 +888,11 @@ function TeacherDashboard() {
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-text-muted">No assessments yet.</p>
+                <div className="text-center py-8">
+                  <Award className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted mb-2">No assessments yet</p>
+                  <p className="text-xs text-text-muted">Assessments you create will appear here.</p>
+                </div>
               )}
             </div>
           </div>
@@ -917,7 +933,11 @@ function TeacherDashboard() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">No schedule published yet.</p>
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                <p className="text-sm text-text-muted mb-2">No schedule published yet</p>
+                <p className="text-xs text-text-muted">Your teaching schedule will appear here once published.</p>
+              </div>
             )}
           </div>
         )}

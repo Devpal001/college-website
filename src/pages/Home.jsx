@@ -56,7 +56,7 @@ function Home() {
   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-soft shadow-inset flex items-center justify-center">
     <GraduationCap className="text-primary" size={28} />
   </div>
-  <h3 className="text-xl font-bold text-text-main mb-2 tracking-tight">50+ Programs</h3>
+  <h3 className="text-xl font-bold text-text-main mb-3 tracking-tight">50+ Programs</h3>
 <p className="text-text-muted text-base leading-relaxed">
   From engineering to arts, find a program that fits your ambitions.
 </p>
@@ -90,7 +90,7 @@ function Home() {
         <p className="text-text-muted mt-3 text-lg">Applications for the next intake are open now.</p>
         <Link
           to="/contact"
-          className="inline-block mt-6 bg-primary text-white px-8 py-4 rounded-soft shadow-soft hover:bg-primary-dark transition"
+          className="btn-primary inline-block mt-6 px-8 py-4 rounded-soft shadow-soft"
         >
           Contact Admissions
         </Link>
