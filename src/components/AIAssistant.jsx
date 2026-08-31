@@ -37,23 +37,35 @@ export default function AIAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Open the assistant when any other component (e.g. the "AI" button in the
+  // Navbar's bottom bar) dispatches the 'mbscet:open-ai-assistant' window event.
+  useEffect(() => {
+    const openAssistant = () => setIsOpen(true);
+    window.addEventListener('mbscet:open-ai-assistant', openAssistant);
+    return () => window.removeEventListener('mbscet:open-ai-assistant', openAssistant);
+  }, []);
+
   const handleSendMessage = async (message) => {
     if (!message.trim()) return;
 
     const userMessage = message.trim();
+    // Build the history including this message so the server receives an
+    // up-to-date conversation and our state updates in a single set.
+    const history = [...messages, { role: 'user', content: userMessage }];
     setInputValue('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(history);
     setLoading(true);
 
     try {
       const response = await api.post('/assistant/chat', {
         message: userMessage,
-        conversationHistory: messages
+        // API contract is [{role, content}] — strip UI-only fields like sources.
+        conversationHistory: history.map(({ role, content }) => ({ role, content }))
       });
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: response.response,
+        content: response.response || "I'm sorry, I couldn't generate a response. Please try again.",
         sources: response.sources
       }]);
     } catch (error) {
@@ -62,17 +74,17 @@ export default function AIAssistant() {
       // - no HTTP status  -> server unreachable
       // - 401             -> not logged in / session expired
       // - 5xx             -> server-side problem
-      let message = "I'm sorry, I encountered an error. Please try again later.";
+      let errorText = "I'm sorry, I encountered an error. Please try again later.";
       if (!error?.status) {
-        message = "I can't reach the college server right now. If this keeps happening, make sure the API server is running (npm run dev starts it), then try again.";
+        errorText = "I can't reach the college server right now. If this keeps happening, make sure the API server is running (npm run dev starts it), then try again.";
       } else if (error.status === 401) {
-        message = 'Please log in to use the AI assistant — your session may have expired. Log in and ask me again.';
+        errorText = 'Please log in to use the AI assistant — your session may have expired. Log in and ask me again.';
       } else if (error.status >= 500) {
-        message = 'The assistant is having a problem right now. Please try again in a moment.';
+        errorText = 'The assistant is having a problem right now. Please try again in a moment.';
       }
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: message
+        content: errorText
       }]);
     } finally {
       setLoading(false);
@@ -124,7 +136,7 @@ export default function AIAssistant() {
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className="fixed bottom-24 right-6 w-96 max-h-[600px] bg-surface rounded-soft-lg shadow-soft-lg z-50 flex flex-col overflow-hidden">
+          <div className="fixed bottom-24 right-6 w-96 max-h-600 bg-surface rounded-soft-lg shadow-soft-lg z-50 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-black/5 flex items-center justify-between bg-primary text-white">
               <div className="flex items-center gap-2">
