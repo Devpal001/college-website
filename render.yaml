@@ -10,11 +10,14 @@ services:
     name: mbscet-api
     runtime: node
     plan: free
-    # The API is its own npm package (server/package.json) — express/cors are
-    # NOT dependencies of the frontend package, so build inside server/.
-    rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
+    # Commands run from the REPO ROOT. The API is its own npm package
+    # (server/package.json — express/cors are NOT dependencies of the
+    # frontend package, and server/node_modules is gitignored), so the
+    # build installs BOTH dependency sets and start runs the committed
+    # entry point directly. Validated locally end-to-end: server boots,
+    # /health returns 200, STU001 demo-login returns 200 + session.
+    buildCommand: npm install && npm install --prefix server
+    startCommand: node server/index.js
     # Render waits for this before marking the deploy live.
     healthCheckPath: /health
     autoDeploy: true
