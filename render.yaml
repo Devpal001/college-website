@@ -33,5 +33,9 @@ services:
       # Keep the ID-only portal login enabled (this is the demo sign-in).
       - key: DISABLE_DEMO_LOGIN
         value: "false"
+      # Explicit CORS allow-list for browser origins (the code also defaults
+      # to localhost dev ports + this production Vercel domain).
+      - key: CORS_ORIGINS
+        value: "https://college-website-dev-11.vercel.app"
       # Optional — omit to use the built-in keyword classifier for the AI
       # assistant / news agent. Add it later in the Render dashboard if needed.

@@ -77,14 +77,39 @@ const PORT = process.env.PORT || 3001;
 // MIDDLEWARE
 // ============================================
 
-// CORS: permissive in this dev setup on purpose.
-// 1) The Vite dev proxy makes browser requests same-origin, so CORS
-//    doesn't even apply for the normal dev flow.
-// 2) Direct access to :3001 (e.g. opening http://<PC-LAN-IP>:3001/health
-//    from a phone for testing) must not be blocked by origin checks.
-// This is safe: the Supabase service-role key never leaves this process,
-// and every protected router enforces authRequired on its own routes.
-app.use(cors());
+// CORS: explicit allow-list (Phase 1 hardening — previously app.use(cors())
+// allowed every origin). Browser clients are the Vercel frontend (production
+// + preview deployments) and, in development, the Vite dev server on localhost.
+// Requests without an Origin header (curl, Render health checks, the Vercel
+// /api proxy) are same-origin/server-to-server and are allowed through.
+const corsOriginEnv = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'https://college-website-dev-11.vercel.app',
+  ...corsOriginEnv,
+]);
+
+// Vercel preview deployments use deterministic project subdomains.
+const vercelPreviewRe = /^https:\/\/college-website(-[a-z0-9]+)*\.vercel\.app$/i;
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin) || vercelPreviewRe.test(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`[cors] blocked origin: ${origin}`);
+    return callback(null, false); // no CORS headers → browser blocks the response
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Request logger — records only failed requests (4xx/5xx) so problems stay

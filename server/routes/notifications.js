@@ -4,6 +4,9 @@ import { supabase } from '../lib/db.js';
 
 const router = express.Router();
 
+// UUID format check (shared by the trigger endpoints below).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ============================================
 // NOTIFICATION HELPERS
 // ============================================
@@ -311,14 +314,33 @@ router.get('/me/preferences', authRequired, async (req, res) => {
 router.put('/me/preferences', authRequired, async (req, res) => {
   try {
     const userId = req.profile.id;
-    const preferences = req.body;
+    const preferences = req.body || {};
+
+    // Whitelist: only the known preference booleans may be updated.
+    // Never spread the raw request body into the update (mass-assignment).
+    const ALLOWED_PREFERENCES = [
+      'college_announcements',
+      'exam_updates',
+      'attendance_alerts',
+      'timetable_changes',
+      'events',
+      'placement_news',
+      'scholarships',
+      'ai_discoveries',
+    ];
+    const cleanUpdates = { updated_at: new Date().toISOString() };
+    for (const field of ALLOWED_PREFERENCES) {
+      if (preferences[field] !== undefined) {
+        if (typeof preferences[field] !== 'boolean') {
+          return res.status(400).json({ error: `${field} must be a boolean` });
+        }
+        cleanUpdates[field] = preferences[field];
+      }
+    }
 
     const { data, error } = await supabase
       .from('notification_preferences')
-      .update({
-        ...preferences,
-        updated_at: new Date().toISOString()
-      })
+      .update(cleanUpdates)
       .eq('user_id', userId)
       .select()
       .single();
@@ -421,30 +443,40 @@ router.get('/admin/recent', authRequired, requireRole('admin', 'super_admin'), a
  * POST /api/notifications/trigger/attendance
  * Trigger attendance notification (used by attendance marking)
  */
-router.post('/trigger/attendance', authRequired, async (req, res) => {
+router.post('/trigger/attendance', authRequired, requireRole('teacher', 'admin', 'super_admin'), async (req, res) => {
   try {
-    const { studentId, attendancePercentage, subjectName } = req.body;
+    const { studentId, attendancePercentage, subjectName } = req.body || {};
+
+    // Validate input — never trust req.body.
+    if (!studentId || !UUID_RE.test(studentId)) {
+      return res.status(400).json({ error: 'studentId must be a valid UUID' });
+    }
+    const percentage = Number(attendancePercentage);
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      return res.status(400).json({ error: 'attendancePercentage must be a number between 0 and 100' });
+    }
 
     // Get student profile
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select('profile_id')
       .eq('id', studentId)
-      .single();
+      .maybeSingle();
 
     if (studentError) throw studentError;
+    if (!student) return res.status(404).json({ error: 'Student not found' });
 
     // Check if attendance is below threshold (75%)
-    if (attendancePercentage < 75) {
+    if (percentage < 75) {
       const shouldNotify = await shouldSendNotification(student.profile_id, 'attendance');
       
       if (shouldNotify) {
         await createNotificationForUsers([student.profile_id], {
           title: 'Low Attendance Alert',
-          message: `Your attendance in ${subjectName} has fallen to ${attendancePercentage}%. Please attend classes regularly.`,
+          message: `Your attendance in ${subjectName} has fallen to ${percentage}%. Please attend classes regularly.`,
           type: 'attendance',
           priority: 'high',
-          data: { attendancePercentage, subjectName }
+          data: { attendancePercentage: percentage, subjectName }
         });
       }
     }
@@ -460,9 +492,23 @@ router.post('/trigger/attendance', authRequired, async (req, res) => {
  * POST /api/notifications/trigger/marks
  * Trigger marks notification (used when marks are published)
  */
-router.post('/trigger/marks', authRequired, async (req, res) => {
+router.post('/trigger/marks', authRequired, requireRole('teacher', 'admin', 'super_admin'), async (req, res) => {
   try {
-    const { studentIds, assessmentTitle, subjectName } = req.body;
+    const { studentIds, assessmentTitle, subjectName } = req.body || {};
+
+    // Validate input — never trust req.body.
+    if (
+      !Array.isArray(studentIds) ||
+      studentIds.length === 0 ||
+      studentIds.length > 200 ||
+      !studentIds.every((id) => typeof id === 'string' && UUID_RE.test(id))
+    ) {
+      return res.status(400).json({ error: 'studentIds must be an array of student UUIDs (max 200)' });
+    }
+    if (typeof assessmentTitle !== 'string' || !assessmentTitle.trim() ||
+        typeof subjectName !== 'string' || !subjectName.trim()) {
+      return res.status(400).json({ error: 'assessmentTitle and subjectName are required' });
+    }
 
     // Get student profiles
     const { data: students, error: studentsError } = await supabase

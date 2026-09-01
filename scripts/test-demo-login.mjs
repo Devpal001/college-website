@@ -159,5 +159,53 @@ console.log('== Core public endpoints still working ==');
   const news = await fetch(`${API}/api/news?limit=1`);
   ok('GET /api/news 200 (modular, public)', news.status === 200);
 }
+
+console.log('== Security hardening (Phase 1b): CORS + trigger authorization ==');
+{
+  // Notification injection must be blocked for non-teachers.
+  if (global.s_student) {
+    const attendanceTrigger = await fetch(`${API}/api/notifications/trigger/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_student.access_token}` },
+      body: JSON.stringify({ studentId: '11111111-1111-4111-8111-111111111111', attendancePercentage: 10, subjectName: 'X' }),
+    });
+    ok('Student blocked from trigger/attendance (403)', attendanceTrigger.status === 403, `got ${attendanceTrigger.status}`);
+
+    const marksTrigger = await fetch(`${API}/api/notifications/trigger/marks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_student.access_token}` },
+      body: JSON.stringify({ studentIds: ['11111111-1111-4111-8111-111111111111'], assessmentTitle: 'X', subjectName: 'Y' }),
+    });
+    ok('Student blocked from trigger/marks (403)', marksTrigger.status === 403, `got ${marksTrigger.status}`);
+  }
+
+  if (global.s_teacher) {
+    // Validation: malformed input must be rejected (400) before any DB write.
+    const badBody = await fetch(`${API}/api/notifications/trigger/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_teacher.access_token}` },
+      body: JSON.stringify({ studentId: 'not-a-uuid', attendancePercentage: 10, subjectName: 'X' }),
+    });
+    ok('trigger/attendance rejects invalid studentId (400)', badBody.status === 400, `got ${badBody.status}`);
+
+    // Teacher reaches the endpoint; an unknown student yields 404 (nothing written).
+    const unknown = await fetch(`${API}/api/notifications/trigger/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_teacher.access_token}` },
+      body: JSON.stringify({ studentId: '11111111-1111-4111-8111-111111111111', attendancePercentage: 10, subjectName: 'X' }),
+    });
+    ok('trigger/attendance with unknown student → 404', unknown.status === 404, `got ${unknown.status}`);
+  }
+
+  // Preferences whitelist: wrong type rejected before touching the DB.
+  if (global.s_student) {
+    const badType = await fetch(`${API}/api/notifications/me/preferences`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_student.access_token}` },
+      body: JSON.stringify({ attendance_alerts: 'yes' }),
+    });
+    ok('preferences PUT rejects non-boolean (400)', badType.status === 400, `got ${badType.status}`);
+  }
+}
 console.log(`Result: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
