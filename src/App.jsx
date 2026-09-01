@@ -15,6 +15,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AIAssistant from './components/AIAssistant';
 import StudentDashboard from './pages/StudentDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import PortalProfile from './pages/PortalProfile';
 import Unauthorized from './pages/Unauthorized';
 import NewsPage from './pages/NewsPage';
 import AdminNews from './pages/AdminNews';
@@ -45,6 +47,14 @@ function App() {
           }
         />
         <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <PortalProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/news"
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
@@ -57,6 +67,14 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
               <AdminAgent />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin-dashboard"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />

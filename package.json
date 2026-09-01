@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
+    "seed": "node scripts/seed-demo.mjs",
     "status": "node scripts/status.mjs",
     "stop": "node scripts/stop.mjs",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""

@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import academicsRouter from './routes/academics.js';
+import authRouter from './routes/auth.js';
 import profileRouter from './routes/profile.js';
 import recordsRouter from './routes/records.js';
 import studentsRouter from './routes/students.js';
@@ -114,6 +115,7 @@ app.use((req, res, next) => {
 // unauthenticated legacy /verify and /pending-review holes).
 // ============================================
 app.use('/api/news', newsRouter);
+app.use('/api/auth', authRouter);
 app.use('/api', academicsRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api', recordsRouter);
@@ -122,7 +124,7 @@ app.use('/api/teachers', teachersRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/assistant', assistantRouter);
-console.log('✅ Modular API routers mounted (news, agent, academics, profile, records, students, teachers, notifications, assistant)');
+console.log('✅ Modular API routers mounted (news, auth, agent, academics, profile, records, students, teachers, notifications, assistant)');
 
 // ============================================
 // SUPABASE

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   GraduationCap,
@@ -69,7 +71,20 @@ function StudentDashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const VALID_TABS = ['overview', 'attendance', 'marks', 'timetable'];
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(VALID_TABS.includes(initialTab) ? initialTab : 'overview');
+
+  // Keep the URL ?tab= synced so PortalLayout nav and deep links work.
+  const changeTab = (id) => {
+    setTab(id);
+    const params = new URLSearchParams(searchParams);
+    if (id === 'overview') params.delete('tab');
+    else params.set('tab', id);
+    setSearchParams(params, { replace: true });
+  };
 
   const loadDashboard = useCallback(async () => {
     setError('');
@@ -131,7 +146,8 @@ function StudentDashboard() {
   ];
 
   return (
-    <div className="px-6 md:px-8 py-10 max-w-6xl mx-auto">
+    <PortalLayout>
+      <div className="px-6 md:px-8 py-10 max-w-6xl mx-auto">
       {/* Header card */}
       <div className="bg-surface rounded-soft-lg shadow-soft p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
         <div className="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold shadow-soft shrink-0">
@@ -187,7 +203,7 @@ function StudentDashboard() {
           return (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => changeTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
                 active
                   ? 'btn-primary shadow-soft'
@@ -443,7 +459,8 @@ function StudentDashboard() {
       <p className="mt-10 text-center text-xs text-text-muted flex items-center justify-center gap-1">
         <GraduationCap size={14} /> Academic Portal · Student Dashboard
       </p>
-    </div>
+      </div>
+    </PortalLayout>
   );
 }
 

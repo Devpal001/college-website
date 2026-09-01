@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   GraduationCap,
@@ -97,9 +99,22 @@ function SelectField({ label, value, onChange, options, placeholder, disabled })
 function TeacherDashboard() {
   const [data, setData] = useState(null);
   const [assessments, setAssessments] = useState([]);
-  const [error, setError] = useState('');
+    const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const VALID_TABS = ['overview', 'subjects', 'students', 'attendance', 'marks', 'schedule'];
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(VALID_TABS.includes(initialTab) ? initialTab : 'overview');
+
+  // Keep the URL ?tab= synced so PortalLayout nav and deep links work.
+  const changeTab = (id) => {
+    setTab(id);
+    const params = new URLSearchParams(searchParams);
+    if (id === 'overview') params.delete('tab');
+    else params.set('tab', id);
+    setSearchParams(params, { replace: true });
+  };
 
   // Attendance marking state
   const [attClass, setAttClass] = useState('');
@@ -341,8 +356,9 @@ function TeacherDashboard() {
     { id: 'schedule', label: 'Schedule', icon: Calendar },
   ];
 
-  return (
-    <div className="px-6 md:px-8 py-10 max-w-6xl mx-auto">
+    return (
+    <PortalLayout>
+      <div className="px-6 md:px-8 py-10 max-w-6xl mx-auto">
       {/* Header card */}
       <div className="bg-surface rounded-soft-lg shadow-soft p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
         <div className="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold shadow-soft shrink-0">
@@ -377,7 +393,7 @@ function TeacherDashboard() {
           return (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+                            onClick={() => changeTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
                 active ? 'btn-primary shadow-soft' : 'bg-bg-soft text-text-muted hover:text-primary'
               }`}
@@ -454,19 +470,19 @@ function TeacherDashboard() {
               <SectionTitle>Quick Actions</SectionTitle>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setTab('attendance')}
+                  onClick={() => changeTab('attendance')}
                   className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium"
                 >
                   <ClipboardCheck size={16} /> Mark Attendance
                 </button>
                 <button
-                  onClick={() => setTab('marks')}
+                  onClick={() => changeTab('marks')}
                   className="btn-action-secondary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium"
                 >
                   <Award size={16} /> Enter Marks
                 </button>
                 <button
-                  onClick={() => setTab('assessments')}
+                  onClick={() => changeTab('assessments')}
                   className="flex items-center gap-2 px-4 py-2 rounded-soft bg-bg-soft text-text-main text-sm font-medium hover:text-primary transition"
                 >
                   <Plus size={16} /> New Assessment
@@ -943,10 +959,11 @@ function TeacherDashboard() {
         )}
       </div>
 
-      <p className="mt-10 text-center text-xs text-text-muted flex items-center justify-center gap-1">
+            <p className="mt-10 text-center text-xs text-text-muted flex items-center justify-center gap-1">
         <GraduationCap size={14} /> Academic Portal · Teacher Dashboard
       </p>
     </div>
+    </PortalLayout>
   );
 }
 

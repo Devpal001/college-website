@@ -151,40 +151,40 @@ router.post('/attendance', async (req, res) => {
       sessionId = newSession.id;
     }
 
-// Upsert attendance rows
-    const upserts = await Promise.all(
-      records.map(async (r) => {
-        const status = ATTENDANCE_STATUSES.includes(r.status) ? r.status : 'present';
-        const row = {
-          session_id: sessionId,
-          student_id: r.studentId,
-          status,
-          marked_by: teacher.id,
-          marked_at: new Date().toISOString(),
-          notes: r.notes ? String(r.notes).slice(0, 500) : null,
-        };
-        const { data: existing } = await supabase
-          .from('attendance')
-          .select('id')
-          .eq('session_id', sessionId)
-          .eq('student_id', r.studentId)
-          .maybeSingle();
+// Upsert attendance rows.
+// NOTE: the live `attendance` table has a `BEFORE UPDATE` trigger
+// (update_attendance_updated_at) that references an `updated_at` column the
+// table does not have, so UPDATEs fail at the database level. We therefore
+// implement the upsert as delete-then-insert, which is identical in outcome
+// (UNIQUE(session_id, student_id)) and works on the current schema. Once
+// supabase/migrations/…_fix_attendance_updated_at.sql is applied, this can
+// be switched back to a plain .upsert().
+const upserts = await Promise.all(
+  records.map(async (r) => {
+    const status = ATTENDANCE_STATUSES.includes(r.status) ? r.status : 'present';
+    const row = {
+      session_id: sessionId,
+      student_id: r.studentId,
+      status,
+      marked_by: teacher.id,
+      marked_at: new Date().toISOString(),
+      notes: r.notes ? String(r.notes).slice(0, 500) : null,
+    };
+    const { data: existing } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('student_id', r.studentId)
+      .maybeSingle();
 
-        if (existing) {
-          const { data, error } = await supabase
-            .from('attendance')
-            .update({ status, marked_by: teacher.id, marked_at: row.marked_at, notes: row.notes })
-            .eq('id', existing.id)
-            .select()
-            .single();
-          if (error) throw error;
-          return data;
-        }
-        const { data, error } = await supabase.from('attendance').insert(row).select().single();
-        if (error) throw error;
-        return data;
-      })
-    );
+    if (existing) {
+      await supabase.from('attendance').delete().eq('id', existing.id);
+    }
+    const { data, error } = await supabase.from('attendance').insert(row).select().single();
+    if (error) throw error;
+    return data;
+  })
+);
 
     res.status(201).json({ sessionId, records: upserts });
 
