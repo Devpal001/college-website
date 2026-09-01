@@ -19,12 +19,20 @@ import { supabase } from './supabase';
 //    through the proxy running on the PC, with no hardcoded IP here.
 //    (Do NOT default to http://localhost:3001 in dev: on a phone,
 //    "localhost" would be the phone itself, not the PC running the API.)
-// 3. Production build: fall back to the backend origin (legacy behavior,
-//    unchanged — there is no production deployment for this project).
-const API_BASE = (
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? '' : 'http://localhost:3001')
-).replace(/\/+$/, '');
+// 3. Production build: same-origin ('') by default. In a production bundle
+//    "localhost" is the VISITOR'S device, not the API server — a hardcoded
+//    http://localhost:3001 fallback silently breaks sign-in (and every other
+//    API call) on phones / other networks. If the API is deployed on a
+//    separate host (e.g. Vercel frontend + Render backend), set VITE_API_URL
+//    in that host's build-time environment variables and redeploy.
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  console.warn(
+    '[api] VITE_API_URL is not set — API calls are being made same-origin. ' +
+      'If the Express API runs on a separate host, set VITE_API_URL at build time.'
+  );
+}
 
 // The Express server mounts every router under /api (see server/index.js:
 // app.use('/api/assistant', ...), app.use('/api/notifications', ...), etc.),
