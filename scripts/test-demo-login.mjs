@@ -111,5 +111,53 @@ if (global.s_teacher) {
 }
 
 console.log('');
+console.log('== Security hardening (Phase 1): removed legacy endpoints ==');
+{
+  const uuid = '11111111-1111-4111-8111-111111111111';
+  const probes = [
+    { name: 'Legacy PUT /api/news/:id/verify removed', method: 'PUT', path: `/api/news/${uuid}/verify`, body: { status: 'verified' } },
+    { name: 'Legacy GET /api/news/pending-review removed', method: 'GET', path: '/api/news/pending-review' },
+    { name: 'Legacy GET /api/notifications/:userId removed', method: 'GET', path: `/api/notifications/${uuid}` },
+    { name: 'Legacy GET preferences/:userId removed', method: 'GET', path: `/api/notifications/preferences/${uuid}` },
+    { name: 'Legacy PUT preferences/:userId removed', method: 'PUT', path: `/api/notifications/preferences/${uuid}`, body: { attendance_alerts: false } },
+    { name: 'Legacy GET /api/timetable?sectionId removed', method: 'GET', path: '/api/timetable?sectionId=x' },
+    { name: 'Legacy GET /api/announcements removed', method: 'GET', path: '/api/announcements' },
+    { name: 'Legacy GET /api/events removed', method: 'GET', path: '/api/events' },
+  ];
+  for (const p of probes) {
+    const res = await fetch(`${API}${p.path}`, {
+      method: p.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: p.body ? JSON.stringify(p.body) : undefined,
+    });
+    ok(p.name + ' (unauthenticated)', res.status === 404 || res.status === 401, `got ${res.status}`);
+  }
+
+  if (global.s_admin) {
+    const legacyVerify = await fetch(`${API}/api/news/${uuid}/verify`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_admin.access_token}` },
+      body: JSON.stringify({ status: 'verified' }),
+    });
+    ok('Legacy verify route gone even with admin token', legacyVerify.status === 404, `got ${legacyVerify.status}`);
+
+    const adminVerify = await fetch(`${API}/api/news/admin/items/${uuid}/verify`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${global.s_admin.access_token}` },
+      body: JSON.stringify({ status: 'verified' }),
+    });
+    ok('Modular admin verify route still reachable', ![401, 403].includes(adminVerify.status), `got ${adminVerify.status}`);
+  }
+}
+
+console.log('== Core public endpoints still working ==');
+{
+  const health = await fetch(`${API}/health`);
+  ok('GET /health 200', health.status === 200);
+  const departments = await fetch(`${API}/api/departments`);
+  ok('GET /api/departments 200 (modular, public)', departments.status === 200);
+  const news = await fetch(`${API}/api/news?limit=1`);
+  ok('GET /api/news 200 (modular, public)', news.status === 200);
+}
 console.log(`Result: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
