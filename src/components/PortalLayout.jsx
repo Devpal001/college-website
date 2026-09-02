@@ -10,6 +10,7 @@ import {
   BookOpen,
   Bot,
   Newspaper,
+  Users,
   LogOut,
   ShieldCheck,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ const NAV_BY_ROLE = {
     { label: 'Dashboard', to: '/admin-dashboard', icon: LayoutDashboard },
     { label: 'News', to: '/admin/news', icon: Newspaper },
     { label: 'AI Agent', to: '/admin/agent', icon: Bot },
+    { label: 'Users', to: '/admin/users', icon: Users },
     { label: 'Notifications', to: '/notifications', icon: Bell },
     { label: 'Profile', to: '/profile', icon: User },
   ],
@@ -54,6 +56,7 @@ const NAV_BY_ROLE = {
     { label: 'Dashboard', to: '/admin-dashboard', icon: LayoutDashboard },
     { label: 'News', to: '/admin/news', icon: Newspaper },
     { label: 'AI Agent', to: '/admin/agent', icon: Bot },
+    { label: 'Users', to: '/admin/users', icon: Users },
     { label: 'Notifications', to: '/notifications', icon: Bell },
     { label: 'Profile', to: '/profile', icon: User },
   ],

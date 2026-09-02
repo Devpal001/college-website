@@ -21,6 +21,7 @@ import Unauthorized from './pages/Unauthorized';
 import NewsPage from './pages/NewsPage';
 import AdminNews from './pages/AdminNews';
 import AdminAgent from './pages/AdminAgent';
+import AdminUsers from './pages/AdminUsers';
 import Notifications from './pages/Notifications';
 
 function App() {
@@ -67,6 +68,14 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
               <AdminAgent />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+              <AdminUsers />
             </ProtectedRoute>
           }
         />

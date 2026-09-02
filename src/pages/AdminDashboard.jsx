@@ -26,7 +26,7 @@ import {
  * labelled "Coming soon" — nothing is pretended to be functional.
  */
 const MODULE_CARDS = [
-  { key: 'student-management', title: 'Student Management', description: 'Add, edit, deactivate and review student records.', icon: Users, to: null, comingSoon: true },
+  { key: 'users', title: 'User Management', description: 'Provision student, teacher and admin accounts; view the user directory.', icon: Users, to: '/admin/users', comingSoon: false },
   { key: 'teacher-management', title: 'Teacher Management', description: 'Manage faculty profiles and department assignments.', icon: UserCheck, to: null, comingSoon: true },
   { key: 'academic-records', title: 'Academic Records', description: 'Courses, semesters, sections and academic structure.', icon: BookOpen, to: null, comingSoon: true },
   { key: 'attendance', title: 'Attendance', description: 'Monitor and manage attendance across all classes.', icon: ClipboardCheck, to: null, comingSoon: true },
