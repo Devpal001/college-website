@@ -44,6 +44,17 @@ export function optionalString(value, field, { max = 255, trim = true } = {}) {
   return requireString(value, field, { min: 1, max, trim });
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Validates and normalizes an email address (lowercased). */
+export function requireEmail(value, field) {
+  const s = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!s || s.length > 254 || !EMAIL_RE.test(s)) {
+    badRequest(`${field} must be a valid email address`, 'INVALID_EMAIL');
+  }
+  return s;
+}
+
 export function requireOneOf(value, field, allowed) {
   if (!Array.isArray(allowed) || !allowed.includes(value)) {
     badRequest(`${field} must be one of: ${allowed.join(', ')}`, 'INVALID_ENUM');

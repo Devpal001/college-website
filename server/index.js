@@ -14,6 +14,7 @@ import newsRouter from './routes/news.js';
 import agentRouter from './routes/agent.js';
 import notificationsRouter from './routes/notifications.js';
 import assistantRouter from './routes/assistant.js';
+import usersRouter from './routes/users.js';
 import { sendError } from './lib/httpError.js';
 import { startNewsScheduler } from './lib/scheduler.js';
 
@@ -155,7 +156,8 @@ app.use('/api/teachers', teachersRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/assistant', assistantRouter);
-console.log('✅ Modular API routers mounted (news, auth, agent, academics, profile, records, students, teachers, notifications, assistant)');
+app.use('/api/users', usersRouter);
+console.log('✅ Modular API routers mounted (news, auth, agent, academics, profile, records, students, teachers, notifications, assistant, users)');
 
 // ============================================
 // HEALTH CHECK
