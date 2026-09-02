@@ -158,13 +158,16 @@ CREATE POLICY "Public can read enrollments" ON enrollments FOR SELECT USING (tru
 CREATE POLICY "Public can read teacher_subjects" ON teacher_subjects FOR SELECT USING (is_active = true);
 CREATE POLICY "Public can read timetable" ON timetable FOR SELECT USING (true);
 -- attendance_sessions: authenticated only — students see sessions for their
--- enrolled sections, teachers see their assigned sessions, admins see all
+-- enrolled sections, teachers see sessions they own (teacher_id = their row),
+-- admins see all
 CREATE POLICY "Authenticated can read attendance_sessions" ON attendance_sessions
     FOR SELECT USING (
         auth.uid() IS NOT NULL
         AND (
             auth_is_admin()
-            OR EXISTS (SELECT 1 FROM teachers WHERE profile_id = auth.uid())
+            OR attendance_sessions.teacher_id IN (
+                SELECT id FROM teachers WHERE profile_id = auth.uid()
+            )
             OR EXISTS (
                 SELECT 1 FROM enrollments e
                 WHERE e.student_id IN (SELECT id FROM students WHERE profile_id = auth.uid())

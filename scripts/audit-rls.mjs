@@ -38,7 +38,7 @@ async function demoLogin(portalId, role) {
     body: JSON.stringify({ portalId, role }),
   });
   if (!res.ok) throw new Error(`demo-login ${portalId} failed: ${res.status}`);
-  return (await res.json()).session;
+  return await res.json(); // full body: { session, user, profile, portal }
 }
 
 async function clientFor(session) {
@@ -75,9 +75,9 @@ const anonClient = createClient(URL, ANON, { auth: { persistSession: false } });
 const studentSession = await demoLogin('STU001', 'student');
 const teacherSession = await demoLogin('TCH001', 'teacher');
 const adminSession = await demoLogin('ADMIN001', 'admin');
-const studentClient = await clientFor(studentSession);
-const teacherClient = await clientFor(teacherSession);
-const adminClient = await clientFor(adminSession);
+const studentClient = await clientFor(studentSession.session);
+const teacherClient = await clientFor(teacherSession.session);
+const adminClient = await clientFor(adminSession.session);
 
 const roles = [
   ['anon', anonClient],
@@ -90,7 +90,7 @@ const roles = [
 // ---------- 3) access matrix ----------
 const matrixTables = [
   'profiles', 'students', 'teachers', 'departments', 'announcements', 'events',
-  'enrollments', 'timetable', 'attendance', 'marks', 'notifications',
+  'enrollments', 'timetable', 'attendance_sessions', 'attendance', 'marks', 'notifications',
   'notification_preferences', 'news_items', 'news_sources', 'admissions',
   'audit_logs', 'ai_agent_runs', 'teacher_subjects', 'sections',
 ];
@@ -166,6 +166,40 @@ if (other) {
   const { count: teacherMarks } = await teacherClient.from('marks').select('*', { count: 'exact', head: true });
   console.log('S4 teacher -> marks visibility: ' + teacherMarks + '/' + totalMarks + ' (should be a subset)');
 }
+
+// S5: student A (STU001) attempts to read STUDENT B's marks (negative)
+if (other) {
+  const { count: crossMarks } = await studentClient
+    .from('marks')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_id', other.id);
+  console.log('S5 student A -> student B marks (negative): ' + (crossMarks > 0 ? 'LEAKED' : 'blocked') + ' (' + crossMarks + ')');
+} else {
+  console.log('S5 skipped: only one student exists in the database');
+}
+
+// S6: student -> attendance_sessions (negative; must be restricted to own sections).
+// Compares the student-visible count against the expected count computed from the
+// student's enrolled sections (single-section seed data makes naive totals misleading).
+{
+  const { count: totalSessions } = await service.from('attendance_sessions').select('*', { count: 'exact', head: true });
+  let expected = 0;
+  if (ownStudent) {
+    const { data: stuEnrolls } = await service.from('enrollments').select('section_id').eq('student_id', ownStudent.id);
+    const ownSectionIds = [...new Set((stuEnrolls || []).map((e) => e.section_id))];
+    if (ownSectionIds.length) {
+      const r = await service.from('attendance_sessions').select('*', { count: 'exact', head: true }).in('section_id', ownSectionIds);
+      expected = r.count ?? 0;
+    }
+  }
+  const { count: studentSessions } = await studentClient.from('attendance_sessions').select('*', { count: 'exact', head: true });
+  const verdict =
+    studentSessions === expected
+      ? (expected < totalSessions ? 'restricted-to-own-sections' : 'all-sessions-in-own-sections')
+      : 'MISMATCH/LEAK (expected ' + expected + ')';
+  console.log('S6 student -> attendance_sessions (negative): ' + studentSessions + '/' + totalSessions + ' (expected own-section ' + expected + ') -> ' + verdict);
+}
+
 
 console.log('');
 console.log('== probe complete (read-only; nothing was written) ==');
