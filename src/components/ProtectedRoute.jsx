@@ -21,9 +21,13 @@ export default function ProtectedRoute({ children, requiredRoles = [] }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRoles.length > 0 && profile) {
-    const hasRequiredRole = requiredRoles.includes(profile.role);
-    if (!hasRequiredRole) {
+  if (requiredRoles.length > 0) {
+    // Defense-in-depth: if the profile could not be loaded (or the user has no
+    // profile row), we cannot verify the role — deny the UI route. The server
+    // still enforces real authorization; this closes the client-side role gate
+    // when profile is null.
+    if (!profile) return <Navigate to="/unauthorized" replace />;
+    if (!requiredRoles.includes(profile.role)) {
       return <Navigate to="/unauthorized" replace />;
     }
   }
