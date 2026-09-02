@@ -3,6 +3,7 @@ import { supabase } from '../lib/db.js';
 import { authRequired, getTeacherForAuth } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
+import { isUuid, requireArray, requireOneOf, requireUuid } from '../lib/validate.js';
 
 const router = Router();
 
@@ -90,14 +91,19 @@ router.post('/attendance', async (req, res) => {
 
     const { subjectId, sectionId, date, records } = req.body || {};
 
-    if (!subjectId || !sectionId || !date) {
-      return res.status(400).json({
-        error: 'subjectId, sectionId and date are required',
-      });
-    }
-
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.status(400).json({ error: 'records must be a non-empty array' });
+    // ---- Server-side validation (never trust req.body) ----
+    requireUuid(subjectId, 'subjectId');
+    requireUuid(sectionId, 'sectionId');
+    requireArray(records, 'records', { max: 500 });
+    for (const r of records) {
+      if (!r || typeof r.studentId !== 'string' || !isUuid(r.studentId)) {
+        return res.status(400).json({ error: 'each record must have a valid studentId UUID' });
+      }
+      if (!ATTENDANCE_STATUSES.includes(r.status)) {
+        return res
+          .status(400)
+          .json({ error: `each record status must be one of: ${ATTENDANCE_STATUSES.join(', ')}` });
+      }
     }
 
     const isDateValid = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date));
@@ -163,7 +169,7 @@ router.post('/attendance', async (req, res) => {
 // be switched back to a plain .upsert().
 const upserts = await Promise.all(
   records.map(async (r) => {
-    const status = ATTENDANCE_STATUSES.includes(r.status) ? r.status : 'present';
+    const status = r.status;
     const row = {
       session_id: sessionId,
       student_id: r.studentId,
@@ -304,13 +310,8 @@ router.post('/marks', async (req, res) => {
 
     const { assessmentId, records } = req.body || {};
 
-    if (!assessmentId) {
-      return res.status(400).json({ error: 'assessmentId is required' });
-    }
-
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.status(400).json({ error: 'records must be a non-empty array' });
-    }
+    requireUuid(assessmentId, 'assessmentId');
+    requireArray(records, 'records', { max: 500 });
 
     const { data: assessment, error: assessError } = await supabase
       .from('assessments')
@@ -459,6 +460,8 @@ router.put('/marks/:id', async (req, res) => {
     if (!teacher) return;
 
     const { id } = req.params;
+    requireUuid(id, 'id');
+
     const { marksObtained, remarks } = req.body || {};
 
     const { data: record, error: fetchError } = await supabase

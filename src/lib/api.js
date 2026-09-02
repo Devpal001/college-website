@@ -74,6 +74,7 @@ async function apiFetch(path, options = {}) {
     }
     const err = new Error(message);
     err.status = res.status;
+    if (body?.code) err.code = body.code;
     throw err;
   }
 

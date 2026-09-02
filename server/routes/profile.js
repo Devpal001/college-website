@@ -3,6 +3,7 @@ import { supabase } from '../lib/db.js';
 import { authRequired } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
+import { requireString } from '../lib/validate.js';
 
 const router = Router();
 
@@ -99,11 +100,16 @@ router.put('/:id', async (req, res) => {
       delete updates.role;
     }
 
-    // Whitelist updatable fields
-    const allowedFields = ['full_name', 'phone', 'avatar_url'];
+    // Whitelist updatable fields + validate types/lengths (never trust req.body).
     const cleanUpdates = {};
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) cleanUpdates[field] = updates[field];
+    if (updates.full_name !== undefined) {
+      cleanUpdates.full_name = requireString(updates.full_name, 'full_name', { max: 200 });
+    }
+    if (updates.phone !== undefined) {
+      cleanUpdates.phone = requireString(updates.phone, 'phone', { max: 20 });
+    }
+    if (updates.avatar_url !== undefined) {
+      cleanUpdates.avatar_url = requireString(updates.avatar_url, 'avatar_url', { max: 500 });
     }
 
     const { data, error } = await supabase
