@@ -27,12 +27,21 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # Admin portal-ID mapping for the demo login (ID=email).
+      # Admin portal-ID mapping for the demo login (ID=email). Only consulted
+      # when demo login is explicitly enabled (dev/testing).
       - key: DEMO_ADMIN_IDS
         value: "ADMIN001=demo-admin@mbscet.demo"
-      # Keep the ID-only portal login enabled (this is the demo sign-in).
+      # Production authentication is email/password (Supabase GoTrue). The
+      # ID-only demo login MUST be OFF here — DISABLE_DEMO_LOGIN=true is an
+      # explicit kill switch AND the code is fail-closed (demo is disabled in
+      # production unless DEMO_LOGIN_ENABLED=true is ALSO set).
       - key: DISABLE_DEMO_LOGIN
-        value: "false"
+        value: "true"
+      # Ensures the server treats this as production (demo fail-closed default,
+      # generic 500 messages, etc.). Render also sets this by default; explicit
+      # is safer.
+      - key: NODE_ENV
+        value: "production"
       # Explicit CORS allow-list for browser origins (the code also defaults
       # to localhost dev ports + this production Vercel domain).
       - key: CORS_ORIGINS
