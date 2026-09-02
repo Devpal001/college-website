@@ -74,6 +74,12 @@ if (!SUPABASE_SERVICE_ROLE_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind Render's reverse proxy every connection arrives from the proxy IP
+// unless we trust the first X-Forwarded-For hop. This makes req.ip resolve to
+// the real client IP, which the auth rate limiter (server/routes/auth.js) uses
+// for per-IP attempt buckets. Single-hop proxy => trust proxy: 1 is safe.
+app.set('trust proxy', 1);
+
 // ============================================
 // MIDDLEWARE
 // ============================================
