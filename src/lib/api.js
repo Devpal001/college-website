@@ -66,15 +66,17 @@ async function apiFetch(path, options = {}) {
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let code;
     try {
       const body = await res.json();
       if (body?.error) message = body.error;
+      if (body?.code) code = body.code;
     } catch {
       // not JSON — keep default message
     }
     const err = new Error(message);
     err.status = res.status;
-    if (body?.code) err.code = body.code;
+    if (code) err.code = code;
     throw err;
   }
 
