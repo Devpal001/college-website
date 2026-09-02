@@ -33,6 +33,27 @@ import { supabase } from '../lib/db.js';
 //    SSO flow — ProtectedRoute, dashboards and every API stay unchanged.
 //    Set DISABLE_DEMO_LOGIN=true in .env to switch this endpoint off.
 
+// ------------------------------------------------------------------
+// FAIL-CLOSED DEMO GATE (Phase 2 hardening)
+// ------------------------------------------------------------------
+// Demo ID-only login must NEVER be the production authentication path.
+// Resolution order (fail-closed by default):
+//   1. DISABLE_DEMO_LOGIN=true   -> ALWAYS disabled (explicit kill switch).
+//   2. DEMO_LOGIN_ENABLED=true   -> ALWAYS enabled (explicit dev/testing opt-in).
+//   3. otherwise                 -> enabled ONLY outside production
+//                                   (NODE_ENV !== 'production').
+// Consequence: a production server with NO flags is demo-DISABLED. Demo is
+// only ever active when an operator deliberately opts in with BOTH flags
+// consistent (DISABLE != true AND DEMO_LOGIN_ENABLED == true) or runs a
+// non-production NODE_ENV.
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const DEMO_LOGIN_ENABLED =
+  process.env.DISABLE_DEMO_LOGIN === 'true'
+    ? false
+    : process.env.DEMO_LOGIN_ENABLED === 'true'
+      ? true
+      : NODE_ENV !== 'production';
+
 const router = Router();
 
 // Demo accounts are seeded by scripts/seed-demo.mjs.
@@ -47,8 +68,6 @@ const DEMO_ADMIN_IDS = String(process.env.DEMO_ADMIN_IDS || '')
     if (idx > 0) map[entry.slice(0, idx).trim().toUpperCase()] = entry.slice(idx + 1).trim();
     return map;
   }, {});
-
-const DEMO_LOGIN_ENABLED = process.env.DISABLE_DEMO_LOGIN !== 'true';
 
 const ALLOWED_ROLES = ['student', 'teacher', 'admin'];
 
@@ -217,15 +236,12 @@ router.post('/demo-login', async (req, res) => {
     const effectiveRole =
       role === 'admin' && profile.role === 'super_admin' ? 'super_admin' : profile.role;
 
-    if (effectiveRole !== role) {
-      return res.status(403).json({
-        error: `This ID does not belong to the ${role} portal. Choose the correct portal and try again.`,
-      });
-    }
-
-    if (profile.is_active === false) {
-      return res.status(403).json({
-        error: 'This account is inactive. Please contact the college administration.',
+    // Account-enumeration hardening: whether the ID doesn't exist, belongs to a
+    // different portal, or is inactive, return the SAME status + message so
+    // responses never reveal which account (if any) an ID maps to.
+    if (effectiveRole !== role || profile.is_active === false) {
+      return res.status(404).json({
+        error: 'No account found for this ID. Check the ID and the selected portal, then try again.',
       });
     }
 
