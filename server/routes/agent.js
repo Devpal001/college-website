@@ -5,6 +5,8 @@ import { AI_MODE } from '../lib/ai.js';
 import { schedulerStatus } from '../lib/scheduler.js';
 import { supabase } from '../lib/db.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // Agent endpoints are admin-only (Phase 5 review workflow backend)
@@ -35,7 +37,7 @@ router.get('/status', async (req, res) => {
     });
   } catch (error) {
     console.error('Agent status error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -53,7 +55,7 @@ router.post('/run', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Agent run error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -77,7 +79,7 @@ router.get('/runs', async (req, res) => {
     res.json({ data: data || [], page, limit, total: count || 0 });
   } catch (error) {
     console.error('Agent runs error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -104,7 +106,7 @@ router.get('/runs/:id', async (req, res) => {
     res.json({ ...run, events: events || [] });
   } catch (error) {
     console.error('Agent run detail error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

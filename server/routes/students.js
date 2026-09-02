@@ -5,6 +5,8 @@ import {
   getStudentForAuth,
 } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // All student endpoints require authentication
@@ -194,7 +196,7 @@ router.get('/me/dashboard', async (req, res) => {
     });
   } catch (error) {
     console.error('Get student dashboard error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -233,7 +235,7 @@ router.get('/me/attendance', async (req, res) => {
     });
   } catch (error) {
     console.error('Get student attendance error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -271,7 +273,7 @@ router.get('/me/marks', async (req, res) => {
     });
   } catch (error) {
     console.error('Get student marks error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -317,7 +319,7 @@ router.get('/me/timetable', async (req, res) => {
     });
   } catch (error) {
     console.error('Get student timetable error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -342,7 +344,7 @@ router.get('/me', async (req, res) => {
     res.json({ profile: req.profile, student, department });
   } catch (error) {
     console.error('Get student me error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 // ============================================
@@ -381,7 +383,7 @@ router.get('/enrollment/:enrollmentNumber', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get student error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -411,7 +413,7 @@ router.get('/:studentId/attendance', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get attendance error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 // ============================================
@@ -439,7 +441,7 @@ router.get('/:studentId/marks', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get marks error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

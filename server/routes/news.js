@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { supabase } from '../lib/db.js';
 import { authRequired, requireRole } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // ============================================
@@ -102,7 +104,7 @@ router.get('/', async (req, res) => {
     res.json({ data, page, limit, total: count ?? data.length });
   } catch (error) {
     console.error('Get news feed error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -120,7 +122,7 @@ router.get('/sources', async (req, res) => {
     res.json({ data });
   } catch (error) {
     console.error('Get news sources error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -140,7 +142,7 @@ router.get('/admin/pending-review', ...adminGuard, async (req, res) => {
     res.json({ data });
   } catch (error) {
     console.error('Get pending news error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -166,7 +168,7 @@ router.get('/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -187,7 +189,7 @@ router.get('/admin/sources', ...adminGuard, async (req, res) => {
     res.json({ data });
   } catch (error) {
     console.error('List news sources error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -228,7 +230,7 @@ router.post('/admin/sources', ...adminGuard, async (req, res) => {
     res.status(201).json(data);
   } catch (error) {
     console.error('Create news source error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -278,7 +280,7 @@ router.put('/admin/sources/:id', ...adminGuard, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update news source error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -316,7 +318,7 @@ router.delete('/admin/sources/:id', ...adminGuard, async (req, res) => {
     res.json({ ...data, deleted: true });
   } catch (error) {
     console.error('Delete news source error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -358,7 +360,7 @@ router.get('/admin/items', ...adminGuard, async (req, res) => {
     res.json({ data, page, limit, total: count ?? data.length });
   } catch (error) {
     console.error('List news items error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -407,7 +409,7 @@ router.post('/admin/items', ...adminGuard, async (req, res) => {
     res.status(201).json(data);
   } catch (error) {
     console.error('Create news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -445,7 +447,7 @@ router.put('/admin/items/:id', ...adminGuard, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -536,7 +538,7 @@ router.put('/admin/items/:id/verify', ...adminGuard, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Verify news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -588,7 +590,7 @@ router.put('/admin/items/:id/publish', ...adminGuard, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Publish news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -606,7 +608,7 @@ router.delete('/admin/items/:id', ...adminGuard, async (req, res) => {
     res.status(204).send();
   } catch (error) {
     console.error('Delete news item error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

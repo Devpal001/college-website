@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { supabase } from '../lib/db.js';
 import { authRequired } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // All profile routes require authentication
@@ -44,7 +46,7 @@ router.get('/me', async (req, res) => {
     res.json({ profile, student, teacher, department });
   } catch (error) {
     console.error('Get me error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -75,7 +77,7 @@ router.get('/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -120,7 +122,7 @@ router.put('/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update profile error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

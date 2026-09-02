@@ -14,6 +14,7 @@ import newsRouter from './routes/news.js';
 import agentRouter from './routes/agent.js';
 import notificationsRouter from './routes/notifications.js';
 import assistantRouter from './routes/assistant.js';
+import { sendError } from './lib/httpError.js';
 import { startNewsScheduler } from './lib/scheduler.js';
 
 // ============================================
@@ -177,31 +178,36 @@ app.get('/health', (req, res) => {
 // ERROR HANDLING
 // ============================================
 
-// Global Express error handler
-app.use(
-  (err, req, res, _next) => {
-    console.error(
-      'Unhandled server error:',
-      err
-    );
+// Central error strategy (Phase 6): every route delegates unexpected errors
+// to sendError (server/lib/httpError.js) which returns the standardized
+// { error, code } envelope and NEVER leaks raw internal/database messages.
+// This global handler is the safety net for anything that calls next(error):
+// middleware, body-parser JSON syntax errors, and uncaught async throws.
 
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message:
-        process.env.NODE_ENV === 'development'
-          ? err.message
-          : 'Something went wrong'
-    });
-  }
-);
-
-// 404 handler
+// 404 handler (registered after routes)
 app.use(
   (req, res) => {
     res.status(404).json({
       error: 'Endpoint not found',
-      path: req.originalUrl
+      code: 'NOT_FOUND',
     });
+  }
+);
+
+// Global Express error handler (must stay last)
+app.use(
+  (err, req, res, _next) => {
+    // body-parser JSON syntax errors arrive with status 400 and type
+    // 'entity.parse.failed' — map them to the standard envelope instead of 500.
+    if (err && err.type === 'entity.parse.failed') {
+      console.warn(`[http-error] 400 ${req.method} ${req.originalUrl} (malformed JSON)`);
+      return res.status(400).json({
+        error: 'Request body is not valid JSON',
+        code: 'MALFORMED_JSON',
+      });
+    }
+
+    sendError(res, err);
   }
 );
 

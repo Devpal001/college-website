@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { supabase } from '../lib/db.js';
 import { authRequired } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // ============================================
@@ -19,7 +21,7 @@ router.get('/departments', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get departments error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -48,7 +50,7 @@ router.get('/courses', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get courses error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -71,7 +73,7 @@ router.get('/semesters', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get semesters error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -94,7 +96,7 @@ router.get('/subjects', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get subjects error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -113,7 +115,7 @@ router.get('/rooms', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get rooms error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -184,7 +186,7 @@ router.get('/timetable/:sectionId', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get timetable error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -233,7 +235,7 @@ router.get('/sections/:sectionId/students', async (req, res) => {
     res.json((data || []).map((e) => e.students).filter(Boolean));
   } catch (error) {
     console.error('Get section students error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -258,7 +260,7 @@ router.get('/sections', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('Get sections error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

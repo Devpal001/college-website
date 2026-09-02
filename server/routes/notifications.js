@@ -2,6 +2,8 @@ import express from 'express';
 import { authRequired, requireRole } from '../middleware/auth.js';
 import { supabase } from '../lib/db.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = express.Router();
 
 // UUID format check (shared by the trigger endpoints below).
@@ -134,7 +136,7 @@ router.get('/me', authRequired, async (req, res) => {
     res.json({ data, count: data.length });
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -156,7 +158,7 @@ router.get('/me/unread-count', authRequired, async (req, res) => {
     res.json({ count });
   } catch (error) {
     console.error('Error fetching unread count:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -196,7 +198,7 @@ router.put('/:id/read', authRequired, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error marking notification as read:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -221,7 +223,7 @@ router.put('/me/read-all', authRequired, async (req, res) => {
     res.json({ success: true, updated: data });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -256,7 +258,7 @@ router.delete('/:id', authRequired, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -303,7 +305,7 @@ router.get('/me/preferences', authRequired, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error fetching notification preferences:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -349,7 +351,7 @@ router.put('/me/preferences', authRequired, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error updating notification preferences:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -381,7 +383,7 @@ router.post('/admin/broadcast', authRequired, requireRole('admin', 'super_admin'
     res.json({ success: true, created: notifications.length, notifications });
   } catch (error) {
     console.error('Error broadcasting notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -409,7 +411,7 @@ router.get('/admin/stats', authRequired, requireRole('admin', 'super_admin'), as
     res.json(stats);
   } catch (error) {
     console.error('Error fetching notification stats:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -431,7 +433,7 @@ router.get('/admin/recent', authRequired, requireRole('admin', 'super_admin'), a
     res.json({ data, count: data.length });
   } catch (error) {
     console.error('Error fetching recent notifications:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -484,7 +486,7 @@ router.post('/trigger/attendance', authRequired, requireRole('teacher', 'admin',
     res.json({ success: true });
   } catch (error) {
     console.error('Error triggering attendance notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -540,7 +542,7 @@ router.post('/trigger/marks', authRequired, requireRole('teacher', 'admin', 'sup
     res.json({ success: true, notified: eligibleUserIds.length });
   } catch (error) {
     console.error('Error triggering marks notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -563,7 +565,7 @@ router.post('/trigger/announcement', authRequired, requireRole('admin', 'super_a
     res.json({ success: true });
   } catch (error) {
     console.error('Error triggering announcement notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -598,7 +600,7 @@ router.post('/trigger/news', authRequired, requireRole('admin', 'super_admin'), 
     res.json({ success: true, notified: userIds.length });
   } catch (error) {
     console.error('Error triggering news notification:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

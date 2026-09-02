@@ -6,6 +6,8 @@ import {
   requireRole,
 } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 const meRouter = Router();
 
@@ -371,7 +373,7 @@ router.get('/:teacherId/subjects', asyncHandler(async (req, res) => {
 router.use((err, req, res, next) => {
   if (!err) return next();
   console.error(`${req.method} ${req.originalUrl} error:`, err);
-  res.status(500).json({ error: err.message });
+  sendError(res, err);
 });
 
 export default router;

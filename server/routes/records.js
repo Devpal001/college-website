@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { supabase } from '../lib/db.js';
 import { authRequired, getTeacherForAuth } from '../middleware/auth.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = Router();
 
 // All record-write endpoints require teacher authentication
@@ -227,7 +229,7 @@ const upserts = await Promise.all(
     });
   } catch (error) {
     console.error('Mark attendance error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -282,7 +284,7 @@ router.put('/attendance/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update attendance error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -439,7 +441,7 @@ router.post('/marks', async (req, res) => {
     });
   } catch (error) {
     console.error('Enter marks error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -497,7 +499,7 @@ router.put('/marks/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update marks error:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 

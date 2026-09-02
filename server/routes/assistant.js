@@ -3,6 +3,8 @@ import { authRequired } from '../middleware/auth.js';
 import { supabase } from '../lib/db.js';
 import { classifyContent } from '../lib/ai.js';
 
+import { sendError } from '../lib/httpError.js';
+
 const router = express.Router();
 
 // ============================================
@@ -503,7 +505,7 @@ router.post('/chat', authRequired, async (req, res) => {
     // Fallback response if something goes wrong
     res.json({
       response: "I'm having trouble accessing your information right now. Please try again later or contact support if the issue persists.",
-      error: error.message,
+      error: null,
       sources: [],
       tools_used: []
     });
@@ -552,7 +554,7 @@ router.get('/tools', authRequired, async (req, res) => {
     res.json({ tools: availableTools });
   } catch (error) {
     console.error('Error getting available tools:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
@@ -592,7 +594,7 @@ router.get('/suggestions', authRequired, async (req, res) => {
     res.json({ suggestions });
   } catch (error) {
     console.error('Error getting suggestions:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
