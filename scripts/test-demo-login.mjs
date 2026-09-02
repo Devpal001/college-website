@@ -59,10 +59,18 @@ console.log('== Demo login endpoint ==');
   global.s_admin = r3.body?.session;
 
   const wrong = await demoLogin('STU001', 'teacher');
-  ok('STU001/teacher denied', wrong.status === 403 || wrong.status === 404, `got ${wrong.status}`);
+  ok('STU001/teacher denied (wrong portal)', wrong.status === 404, `got ${wrong.status}`);
 
   const missing = await demoLogin('STU999', 'student');
   ok('Unknown ID denied', missing.status === 404, `got ${missing.status}`);
+
+  // Account-enumeration hardening: an existing ID in the wrong portal and an
+  // unknown ID must resolve to the SAME status + message.
+  ok(
+    'enumeration: wrong-portal and unknown-ID return identical response',
+    wrong.status === missing.status && wrong.body?.error === missing.body?.error,
+    `got ${wrong.status} vs ${missing.status}`
+  );
 
   const badRole = await demoLogin('STU001', 'principal');
   ok('Invalid role rejected', badRole.status === 400, `got ${badRole.status}`);
