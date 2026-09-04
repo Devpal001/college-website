@@ -178,7 +178,13 @@ CREATE POLICY "Authenticated can read attendance_sessions" ON attendance_session
 CREATE POLICY "Public can read announcements" ON announcements FOR SELECT USING (is_active = true);
 CREATE POLICY "Public can read events" ON events FOR SELECT USING (true);
 CREATE POLICY "Public can read news_sources" ON news_sources FOR SELECT USING (is_active = true);
-CREATE POLICY "Public can read ai_agent_runs" ON ai_agent_runs FOR SELECT USING (status IN ('completed', 'failed', 'cancelled'));
+-- H-1 (Phase 7): ai_agent_runs holds AI chat metadata. Chat transcripts are
+-- sensitive — never publicly readable. Admin/super_admin SELECT only.
+-- (The assistant no longer persists raw messages or tool payloads, but even
+-- metadata stays admin-only.)
+DROP POLICY IF EXISTS "Public can read ai_agent_runs" ON ai_agent_runs;
+CREATE POLICY "Admins can view ai_agent_runs" ON ai_agent_runs
+    FOR SELECT USING (auth_is_admin());
 
 -- Admin manage (write) for reference data
 CREATE POLICY "Admins can manage departments" ON departments FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());

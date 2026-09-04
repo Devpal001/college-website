@@ -8,6 +8,27 @@ import { sendError } from '../lib/httpError.js';
 const router = express.Router();
 
 // ============================================
+// M-2 (Phase 7): per-user rate limit for chat.
+// In-memory, mirrors the auth limiter pattern in routes/auth.js
+// (fine for a single instance, not a cluster).
+// ============================================
+const CHAT_WINDOW_MS = 60_000;
+const CHAT_MAX_PER_WINDOW = 10;
+const chatAttempts = new Map(); // profile id -> number[] (timestamps)
+
+function isChatRateLimited(userId) {
+  const now = Date.now();
+  const attempts = (chatAttempts.get(userId) || []).filter((t) => now - t < CHAT_WINDOW_MS);
+  if (attempts.length >= CHAT_MAX_PER_WINDOW) {
+    chatAttempts.set(userId, attempts);
+    return true;
+  }
+  attempts.push(now);
+  chatAttempts.set(userId, attempts);
+  return false;
+}
+
+// ============================================
 // AI ASSISTANT CONTROLLED TOOLS
 // ============================================
 // Every tool is scoped to the authenticated user (req.profile)
@@ -335,6 +356,21 @@ router.post('/chat', authRequired, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    // M-2 (Phase 7): cap message size (cost/abuse control) and rate limit
+    // per user. Safe validation errors with stable codes.
+    if (message.length > 4000) {
+      return res.status(400).json({
+        error: 'Message is too long (maximum 4000 characters)',
+        code: 'MESSAGE_TOO_LONG',
+      });
+    }
+    if (isChatRateLimited(userId)) {
+      return res.status(429).json({
+        error: 'Too many chat requests. Please try again in a minute.',
+        code: 'RATE_LIMITED',
+      });
+    }
+
     // Classify the user's request to determine which tools to use.
     // classifyContent never throws; it returns a space-separated
     // string of matched intents (e.g. 'attendance marks') or 'general'.
@@ -472,6 +508,10 @@ router.post('/chat', authRequired, async (req, res) => {
 
     // Log the AI interaction — a logging failure must never
     // destroy a perfectly good answer.
+    // H-1 (Phase 7): NEVER persist the raw user message, the AI response,
+    // or tool payloads here - they contain the user's academic data
+    // (marks/attendance/profile). Only minimal, non-sensitive metadata
+    // is kept for analytics.
     try {
       await supabase.from('ai_agent_runs').insert({
         agent_type: 'assistant',
@@ -481,12 +521,9 @@ router.post('/chat', authRequired, async (req, res) => {
         action: 'chat_response',
         confidence: 0.8,
         result: {
-          user_message: message,
-          response,
-          tools_used: Object.keys(toolResults),
-          classification
-        },
-        tool_calls: toolResults
+          classification,
+          tools_used: Object.keys(toolResults)
+        }
       });
     } catch (logError) {
       console.warn('Assistant chat logging failed (non-fatal):', logError?.message || logError);

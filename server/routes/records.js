@@ -61,7 +61,7 @@ async function triggerAttendanceNotification(studentId, attendancePercentage, su
 // ============================================
 // Shared helper: verify teacher assignment
 // ============================================
-async function isTeacherAssigned(teacherId, subjectId, sectionId = null) {
+export async function isTeacherAssigned(teacherId, subjectId, sectionId = null) {
   let query = supabase
     .from('teacher_subjects')
     .select('id')

@@ -1,8 +1,11 @@
 import express from 'express';
-import { authRequired, requireRole } from '../middleware/auth.js';
+import { authRequired, requireRole, getTeacherForAuth } from '../middleware/auth.js';
 import { supabase } from '../lib/db.js';
 
 import { sendError } from '../lib/httpError.js';
+// M-1 (Phase 7): reuse the SAME assignment-authorization model as
+// attendance/marks marking (server/routes/records.js) — no second auth model.
+import { isTeacherAssigned } from './records.js';
 
 const router = express.Router();
 
@@ -447,7 +450,34 @@ router.get('/admin/recent', authRequired, requireRole('admin', 'super_admin'), a
  */
 router.post('/trigger/attendance', authRequired, requireRole('teacher', 'admin', 'super_admin'), async (req, res) => {
   try {
-    const { studentId, attendancePercentage, subjectName } = req.body || {};
+    const { studentId, attendancePercentage, subjectName, subjectId, sectionId } = req.body || {};
+
+    // M-1 (Phase 7): subjectId/sectionId are required so the trigger can be
+    // scoped to the teacher's actual assignment (same model as records.js).
+    if (!subjectId || !UUID_RE.test(subjectId)) {
+      return res.status(400).json({ error: 'subjectId must be a valid UUID' });
+    }
+    if (!sectionId || !UUID_RE.test(sectionId)) {
+      return res.status(400).json({ error: 'sectionId must be a valid UUID' });
+    }
+    if (typeof subjectName !== 'string' || !subjectName.trim() || subjectName.trim().length > 120) {
+      return res.status(400).json({ error: 'subjectName is required (max 120 characters)' });
+    }
+
+    // M-1 (Phase 7): teachers may only trigger for their OWN assigned
+    // subject/section, using the exact same authorization model as the
+    // attendance/marks routes in records.js. Admins keep full access.
+    if (req.profile.role === 'teacher') {
+      const teacher = await getTeacherForAuth(req, res);
+      if (!teacher) return;
+      const assigned = await isTeacherAssigned(teacher.id, subjectId, sectionId);
+      if (!assigned) {
+        return res.status(403).json({
+          error: 'You are not authorized to send attendance notifications for this subject/section',
+          code: 'FORBIDDEN',
+        });
+      }
+    }
 
     // Validate input — never trust req.body.
     if (!studentId || !UUID_RE.test(studentId)) {
@@ -467,6 +497,23 @@ router.post('/trigger/attendance', authRequired, requireRole('teacher', 'admin',
 
     if (studentError) throw studentError;
     if (!student) return res.status(404).json({ error: 'Student not found' });
+    // M-1 (Phase 7): the targeted student must be enrolled in the scoped
+    // section; otherwise the caller is pairing a student with a section
+    // they do not belong to (mirror of the marks handler check).
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from('enrollments')
+      .select('student_id')
+      .eq('student_id', studentId)
+      .eq('section_id', sectionId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (enrollmentError) throw enrollmentError;
+    if (!enrollment) {
+      return res.status(403).json({
+        error: 'Student is not enrolled in the specified section',
+        code: 'FORBIDDEN',
+      });
+    }
 
     // Check if attendance is below threshold (75%)
     if (percentage < 75) {
@@ -496,7 +543,29 @@ router.post('/trigger/attendance', authRequired, requireRole('teacher', 'admin',
  */
 router.post('/trigger/marks', authRequired, requireRole('teacher', 'admin', 'super_admin'), async (req, res) => {
   try {
-    const { studentIds, assessmentTitle, subjectName } = req.body || {};
+    const { studentIds, assessmentTitle, subjectName, subjectId, sectionId } = req.body || {};
+
+    // M-1 (Phase 7): subjectId/sectionId required for assignment scoping.
+    if (!subjectId || !UUID_RE.test(subjectId)) {
+      return res.status(400).json({ error: 'subjectId must be a valid UUID' });
+    }
+    if (!sectionId || !UUID_RE.test(sectionId)) {
+      return res.status(400).json({ error: 'sectionId must be a valid UUID' });
+    }
+
+    // M-1 (Phase 7): teachers may only trigger for their OWN assigned
+    // subject/section (same model as records.js). Admins keep full access.
+    if (req.profile.role === 'teacher') {
+      const teacher = await getTeacherForAuth(req, res);
+      if (!teacher) return;
+      const assigned = await isTeacherAssigned(teacher.id, subjectId, sectionId);
+      if (!assigned) {
+        return res.status(403).json({
+          error: 'You are not authorized to send marks notifications for this subject/section',
+          code: 'FORBIDDEN',
+        });
+      }
+    }
 
     // Validate input — never trust req.body.
     if (
@@ -511,6 +580,11 @@ router.post('/trigger/marks', authRequired, requireRole('teacher', 'admin', 'sup
         typeof subjectName !== 'string' || !subjectName.trim()) {
       return res.status(400).json({ error: 'assessmentTitle and subjectName are required' });
     }
+    if (assessmentTitle.trim().length > 120 || subjectName.trim().length > 120) {
+      return res.status(400).json({
+        error: 'assessmentTitle and subjectName are required (max 120 characters each)',
+      });
+    }
 
     // Get student profiles
     const { data: students, error: studentsError } = await supabase
@@ -519,6 +593,23 @@ router.post('/trigger/marks', authRequired, requireRole('teacher', 'admin', 'sup
       .in('id', studentIds);
 
     if (studentsError) throw studentsError;
+
+    // M-1 (Phase 7): every targeted student must be enrolled in the scoped
+    // section; reject the whole request otherwise (no partial sends).
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('enrollments')
+      .select('student_id')
+      .in('student_id', studentIds)
+      .eq('section_id', sectionId)
+      .eq('status', 'active');
+    if (enrollmentsError) throw enrollmentsError;
+    const enrolledIds = new Set(enrollments.map((e) => e.student_id));
+    if (studentIds.some((id) => !enrolledIds.has(id))) {
+      return res.status(403).json({
+        error: 'One or more students are not enrolled in the specified section',
+        code: 'FORBIDDEN',
+      });
+    }
 
     const userIds = students.map(s => s.profile_id);
     
