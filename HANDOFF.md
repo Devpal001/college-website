@@ -3,7 +3,7 @@
 > Prepared for Devin (or any continuing agent/developer).
 > Repo: `college-website/` — https://github.com/Devpal001/college-website.git (branch `main`)
 > Working dir: `c:\Users\singh\college website ai automated\college-website`
-> Last updated: after Phase 5 push (`5d29a65`)
+> Last updated: after Phase 7 security hardening + production deploy (commit `df13881`, `468822d`)
 
 ---
 
@@ -35,8 +35,18 @@ ba32a1b  Phase 3: Academic Platform (dashboards, attendance, marks, timetable)
 | 3 | Academic Platform — dashboards, attendance, marks, timetable | ✅ Done & pushed |
 | 4 | News Infrastructure — model, API, admin console, public feed | ✅ Done & pushed |
 | 5 | AI News Agent — scheduler, engine, classification, review | ✅ Done & pushed |
-| 6 | Notification Engine | ⬜ Not started |
-| 7 | AI Assistant | ⬜ Not started |
+| 6 | Notification Engine | ✅ Done (notifications + preferences + trigger endpoints) |
+| 7 | AI Assistant | ✅ Done (chat + controlled tools + rate limit) |
+
+### Session update (post Phase 7 — security hardening + deploy)
+- **H-1**: `ai_agent_runs` SELECT restricted to admin/super_admin (was public for `completed/failed/cancelled`). Verified live: anon count 0, admin count 64. Committed `df13881`.
+- **M-1**: attendance/marks notification triggers now require `subjectId`+`sectionId` scoping; teachers restricted to own assignments; students must be enrolled in the section.
+- **M-2**: chat rate limit (10/min) + 4000-char cap; assistant no longer persists raw messages/tool payloads.
+- **Performance**: route-level `React.lazy()` in `src/App.jsx` — initial JS chunk 916 kB → 475 kB. Committed `468822d`.
+- **Deploy**: frontend **live** at `https://college-website-psi-seven.vercel.app` (Vercel → `/api/*` proxy → Render → Supabase). Render API live at `https://college-website-api.onrender.com`. Full production smoke verified (homepage 200, SPA routes 200, `/api/news/sources` 200, news feed 200).
+- **Seed data**: `scripts/seed-demo.mjs` exists (idempotent, `npm run seed`) — identities, timetable, attendance, marks, notifications. News sources seeded & active (MBSCET, Univ of Jammu, AICTE).
+- **News review queue**: 25 items pending admin review (published none — feed intentionally empty until admin publishes).
+
 
 ## 3. Environment & How to Run
 
