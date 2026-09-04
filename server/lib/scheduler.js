@@ -46,6 +46,10 @@ export function startNewsScheduler() {
 
   timer = setInterval(tick, INTERVAL_MINUTES * 60 * 1000);
   timer.unref?.();
+  // Run one catch-up cycle shortly after boot: platforms such as the Render
+  // free tier sleep idle instances, which pauses setInterval — firing a check
+  // at startup means every wake-up still refreshes due sources.
+  setTimeout(() => void tick(), 1000);
   console.log(`🤖 News agent scheduler started — every ${INTERVAL_MINUTES} min (AI mode: heuristics/openai)`);
   return schedulerStatus();
 }

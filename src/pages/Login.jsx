@@ -81,7 +81,11 @@ export default function PortalLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDemoIds, setShowDemoIds] = useState(false);
-  const [mode, setMode] = useState('portal'); // 'portal' | 'email'
+  const [mode, setMode] = useState(import.meta.env.PROD ? 'email' : 'portal'); // 'portal' | 'email'
+  // Production uses real email/password (Supabase GoTrue). The ID-only portal
+  // login is development-only (server fails it closed in production), so hide
+  // it and the demo banner entirely when built for production.
+  const IS_PROD = import.meta.env.PROD;
 
   // Legacy email/password fields (kept so the old flow still works).
   const [email, setEmail] = useState('');
@@ -145,12 +149,14 @@ export default function PortalLogin() {
   return (
     <section className="px-6 py-16 bg-bg-soft min-h-[80vh] fade-in">
       <div className="max-w-2xl mx-auto">
-        {/* Demo-mode banner — deliberately signals this is not production auth */}
-        <div className="flex items-center gap-2 justify-center mb-6">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning/15 text-warning-dark text-xs font-bold uppercase tracking-wide">
-            <AlertCircle size={14} /> Development Demo Portal — ID-only sign in
-          </span>
-        </div>
+        {/* Demo-mode banner — development only. Hidden in production builds. */}
+        {!IS_PROD && (
+          <div className="flex items-center gap-2 justify-center mb-6">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning/15 text-warning-dark text-xs font-bold uppercase tracking-wide">
+              <AlertCircle size={14} /> Development Demo Portal — ID-only sign in
+            </span>
+          </div>
+        )}
 
         <div className="bg-surface rounded-soft-lg shadow-soft p-6 md:p-8">
           <div className="text-center mb-8">
@@ -160,7 +166,7 @@ export default function PortalLogin() {
             </p>
           </div>
 
-          {mode === 'portal' ? (
+          {mode === 'portal' && !IS_PROD ? (
             <>
               {/* Role picker */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Choose a portal">
@@ -340,18 +346,20 @@ export default function PortalLogin() {
                 </button>
               </form>
 
-              <div className="mt-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('portal');
-                    setError('');
-                  }}
-                  className="text-sm text-primary font-medium hover:underline"
-                >
-                  ← Back to Portal ID sign in
-                </button>
-              </div>
+              {!IS_PROD && (
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('portal');
+                      setError('');
+                    }}
+                    className="text-sm text-primary font-medium hover:underline"
+                  >
+                    ← Back to Portal ID sign in
+                  </button>
+                </div>
+              )}
             </>
           )}
 
