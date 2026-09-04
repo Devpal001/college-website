@@ -1,28 +1,32 @@
+import { lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
-import About from './pages/About';
-import Admissions from './pages/Admissions';
-import Contact from './pages/Contact';
-import Departments from './pages/Departments';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
 import PlaceholderPage from './pages/PlaceholderPage';
 import ComingSoon from './pages/ComingSoon';
 import Gallery from './components/Gallery';
 import ProtectedRoute from './components/ProtectedRoute';
 import AIAssistant from './components/AIAssistant';
-import StudentDashboard from './pages/StudentDashboard';
-import TeacherDashboard from './pages/TeacherDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import PortalProfile from './pages/PortalProfile';
-import Unauthorized from './pages/Unauthorized';
-import NewsPage from './pages/NewsPage';
-import AdminNews from './pages/AdminNews';
-import AdminAgent from './pages/AdminAgent';
-import AdminUsers from './pages/AdminUsers';
-import Notifications from './pages/Notifications';
+
+// Route-level lazy loading (React 19 `lazy()` + React Router v7): keeps the
+// initial public-page chunk small and loads dashboards/admin/news on demand.
+const About = lazy(() => import('./pages/About'));
+const Admissions = lazy(() => import('./pages/Admissions'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Departments = lazy(() => import('./pages/Departments'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+const NewsPage = lazy(() => import('./pages/NewsPage'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const PortalProfile = lazy(() => import('./pages/PortalProfile'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminNews = lazy(() => import('./pages/AdminNews'));
+const AdminAgent = lazy(() => import('./pages/AdminAgent'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 
 function App() {
   return (
