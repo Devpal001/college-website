@@ -45,6 +45,6 @@ services:
       # Explicit CORS allow-list for browser origins (the code also defaults
       # to localhost dev ports + this production Vercel domain).
       - key: CORS_ORIGINS
-        value: "https://college-website-dev-11.vercel.app"
+        value: "https://college-website-psi-seven.vercel.app"
       # Optional — omit to use the built-in keyword classifier for the AI
       # assistant / news agent. Add it later in the Render dashboard if needed.
