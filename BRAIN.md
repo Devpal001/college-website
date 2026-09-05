@@ -1,7 +1,8 @@
 # BRAIN.md — MBSCET College Digital Platform
 
 > **Living system map.** Read this first, then trust the implementation over this file.
-> Production baseline: commit `4269d62` (HEAD == origin/main, working tree clean).
+> Production baseline: commit `4269d62`. A UI-polish + login-redirect pass (2026-09-05, see §2)
+> is build-verified locally and pending commit/deploy.
 
 ---
 
@@ -61,9 +62,45 @@ Original roadmap: **7 phases. All complete.**
 | Email delivery | Future Feature | env scaffolding exists (`SMTP_*`, `VAPID_*`); not wired |
 | 20 pending news items | Maintenance | 5 published; 20 await review |
 | Legacy cleanup | Maintenance | demo login path; `signInWithPortalId` |
-| UI polish | Enhancement | per `DESIGN_SYSTEM.md` |
+| UI polish | Enhancement | per `DESIGN_SYSTEM.md` — desktop pass done (§2); mobile/responsive pass pending |
 
 > Phase 8 does not exist in the original plan.
+
+### Post-Launch Polish Pass (2026-09-05)
+
+Desktop visual QA + one auth-redirect fix. 8 frontend files, no new dependencies, no API/DB
+changes. Build-verified (`npm run build` PASS; lint clean for changed files). **Pending commit/deploy.**
+
+**UI fixes (CSS classes only — Home, Admissions, About, Departments, Gallery, NewsPage, Footer):**
+- Paragraphs in `text-center` sections that were left-stranded by the global
+  `p { max-width: 75ch }` rule are centered with `mx-auto` (Home hero accreditation line +
+  CTA "Applications for the next intake…", Admissions CTA, About "Our Story",
+  Departments M.Tech notes, NewsPage empty state, Login header).
+- ⚠️ **Tailwind v4 layering gotcha (discovered during this pass):** unlayered rules in
+  `index.css` (`p { max-width: 75ch }`, `h1`–`h4` font clamps) **override utility classes**
+  (`max-w-*`, `text-*`) on those elements, because unlayered author CSS beats `@layer
+  utilities`. Account for this in future UI work.
+- Vertical rhythm normalized to the spacing tokens: `py-32` → `py-24` (`--space-12`) on Home
+  hero/highlights/CTA and the Departments/Gallery headers; removed an empty `#stats` anchor
+  section on About (~144px dead space); Footer `mt-16` → `mt-8`.
+- No responsive restructuring — all changes are fluid and mobile-safe. Full mobile
+  optimization remains a separate future phase.
+- Neumorphism stays intentionally removed: shadow tokens are flattened app-wide
+  (`--shadow-*: none` in `index.css`, per DESIGN_SYSTEM §1). Do not reintroduce.
+
+**Login redirect fix (`src/pages/Login.jsx` — auth behavior only):**
+- Email login previously called `navigate('/')` on success, racing the session-aware redirect
+  on `/login` (which guessed `role || 'student'`) — users could land on the home page or the
+  wrong dashboard. It now resolves the profile via `getUserProfile` and navigates to
+  `dashboardPathForRole(profile.role)`, matching the portal-ID login contract.
+- The session-aware redirect on `/login` fires only once the role is known
+  (`user && profile`); it no longer guesses a role.
+- Errors still render inline (no error flow navigates anywhere). Auth libs, server routes,
+  DB schema, and API contracts untouched.
+
+**Known leftovers:** footer panel is invisible in both themes (`bg-surface` equals the page
+background); 3 pre-existing lint errors (2 in `server/routes/*`, 1 unused `LoadingSpinner`
+import in `AdminDashboard.jsx`).
 
 ---
 
@@ -186,6 +223,9 @@ User → /login → email/password form → signInWithEmail() → Supabase GoTru
  → useAuth.jsx sets session + profile → ProtectedRoute → correct dashboard
  → Navbar/PortalLayout use session+role → logout clears session
 ```
+
+Post-login routing is deterministic: `Login` resolves the profile, then navigates to
+`dashboardPathForRole(profile.role)` (fixed 2026-09-05 — see §2 polish pass).
 
 ### Student → StudentDashboard → overview/attendance/marks/timetable → GET /api/students/me/dashboard
 ### Teacher → TeacherDashboard → dashboard/classes/attendance/marks entry → POST /api/marks (scoped)
