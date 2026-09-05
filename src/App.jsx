@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -16,7 +16,7 @@ const Admissions = lazy(() => import('./pages/Admissions'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Departments = lazy(() => import('./pages/Departments'));
 const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
+const ActivateAccount = lazy(() => import('./pages/ActivateAccount'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 const NewsPage = lazy(() => import('./pages/NewsPage'));
 const Notifications = lazy(() => import('./pages/Notifications'));
@@ -40,7 +40,9 @@ function App() {
         <Route path="/departments" element={<Departments />} />
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/activate" element={<ActivateAccount />} />
+        {/* Public self-signup retired (Decision 3): old links now lead to activation. */}
+        <Route path="/signup" element={<Navigate to="/activate" replace />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="/news" element={<NewsPage />} />
         <Route

@@ -50,8 +50,18 @@ export async function authRequired(req, res, next) {
       return res.status(401).json({ error: 'User profile not found' });
     }
 
-    if (!PUBLIC_ROLES.includes(profile.role)) {
+          if (!PUBLIC_ROLES.includes(profile.role)) {
       return res.status(403).json({ error: 'Invalid role assigned to user' });
+    }
+
+    // Enforce account lifecycle at every request. Phase 2 hardening: a
+    // suspended/disabled (or still-pending) account must never reach protected
+    // APIs, regardless of how valid its JWT is.
+    if (profile.status !== 'active') {
+      console.warn(
+        `[auth] 403 account not active — ${req.method} ${req.originalUrl} (status=${profile.status})`
+      );
+      return res.status(403).json({ error: 'Account is not active' });
     }
 
     req.user = { id: user.id, email: user.email };

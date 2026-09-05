@@ -242,6 +242,52 @@ Post-login routing is deterministic: `Login` resolves the profile, then navigate
   failure → 500 + code `*_LOOKUP_FAILED` (retryable, logged server-side). DB errors are
   never reported as "profile not found". No error flow redirects to the public home page.
 
+### Phase 0 — Identity foundations (2026-09-05, migration `2026_09_05_phase0_identity_foundations.sql`)
+
+- `profiles.institutional_id TEXT UNIQUE` — the unified human-facing institutional
+  identity. Backfilled deterministically from `students.enrollment_number` /
+  `teachers.employee_id` (existing values preserved, nothing renamed). Administrator
+  institutional IDs are assigned through the authoritative provisioning/registry
+  process — they are not invented by the migration.
+- `profiles.status` — `pending | active | suspended | disabled` (NOT NULL, DEFAULT
+  `active` so legacy trigger-created accounts keep working during the transition;
+  existing rows backfilled to `active`). The legacy `is_active` boolean is preserved
+  and kept synchronized by the `sync_profile_status()` trigger; `status` is the
+  authoritative lifecycle field.
+- Phase 0 is purely additive: application behavior is unchanged. `authRequired` status
+  enforcement lands in Phase 3; registry/activation flows in Phase 1; unified
+  institutional login in Phase 2.
+
+### Phase 1 — Identity registry + account activation (2026-09-05, migration `2026_09_05_phase1_account_activations.sql`)
+
+- **Public self-signup is RETIRED (Decision 3):** `/signup` redirects to `/activate`
+  (`src/pages/ActivateAccount.jsx`); `Signup.jsx` was removed. A person can only activate
+  an identity the administration has already registered.
+- **Registry (admin-only, Phase 1):** `POST /api/users/registry` creates the authoritative
+  identity as a COMPLETE pending account — auth user (random unusable password) → profile
+  (`status='pending'`, `institutional_id`) → students/teachers row (the institutional ID
+  doubles as enrollment/employee code) → one-time activation code (SHA-256 hash in
+  `account_activations`, single-use, 7-day TTL). The raw code is shown once in the
+  AdminUsers UI ("Registry activation" checkbox) and delivered out-of-band.
+  `POST /api/users/registry/reissue` replaces an unused code. The ROLE always comes from
+  the registry entry — the person never chooses one.
+- **Activation (public, rate-limited):** `POST /api/auth/activate` verifies institutional
+  ID + institutional email + one-time code (+ the shared password policy,
+  `server/lib/password.js`) and flips the account `pending → active`, burning the code.
+  Every rejection returns ONE generic message (`ACTIVATION_FAILED`) — no enumeration;
+  specifics are logged server-side only. Code comparison is timing-safe against the
+  stored hash; passwords are handled exclusively by Supabase GoTrue.
+- **`account_activations` table:** RLS deny-by-default — anonymous/authenticated clients
+  have NO policy (no access). The Express API's server-side `service_role` is granted
+  access through one `--privileged` `FOR ALL` policy (required for non-owner tables;
+  privilege is not granted to browsers).
+- **Transitional state:** pending accounts cannot authenticate (unknown random password;
+  demo-login rejects `is_active=false`). Legacy email/password login is preserved for
+  active accounts (Decision 5). Phase 2 (unified institutional-ID login) and Phase 3
+  (`authRequired` status enforcement) are not yet implemented.
+- E2E verification script: `node scripts/test-activation.mjs` (self-cleaning — creates and
+  deletes one `TEST-ACT-STU` identity; requires the dev server + demo seed).
+
 ### Student → StudentDashboard → overview/attendance/marks/timetable → GET /api/students/me/dashboard
 ### Teacher → TeacherDashboard → dashboard/classes/attendance/marks entry → POST /api/marks (scoped)
 ### Admin → AdminDashboard → News/AI Agent/Users → publish news → live feed updates

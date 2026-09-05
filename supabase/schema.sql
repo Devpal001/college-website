@@ -12,11 +12,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================
 
 -- User profiles (extends Supabase auth.users)
+-- institutional_id: unified human-facing institutional identity
+--   (backfilled from students.enrollment_number / teachers.employee_id for
+--   existing databases — see migrations/2026_09_05_phase0_identity_foundations.sql;
+--   administrator IDs are assigned through the provisioning/registry process).
+-- status: account lifecycle; authoritative over the legacy is_active boolean
+--   (kept synchronized by the sync_profile_status() trigger below).
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
   role TEXT NOT NULL CHECK (role IN ('student', 'teacher', 'admin', 'super_admin')),
+  institutional_id TEXT UNIQUE,
+  status TEXT DEFAULT 'active' CHECK (status IN ('pending', 'active', 'suspended', 'disabled')),
   phone TEXT,
   avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -61,6 +69,33 @@ CREATE TABLE teachers (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Account activation credentials (Phase 1)
+-- One-time activation codes for PENDING institutional accounts registered
+-- through the admin identity registry (POST /api/users/registry). Only a
+-- SHA-256 hash of the code is stored; codes are single-use and expiring.
+-- RLS deny-by-default: anonymous/authenticated clients have NO access;
+-- only the server-side service_role is granted access (--privileged policy).
+CREATE TABLE account_activations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  code_hash TEXT NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  used_at TIMESTAMP WITH TIME ZONE,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Service-role access for the Express API — marked --privileged so it bypasses
+-- RLS (and satisfies PostgREST's role-grant requirement for non-owner tables).
+-- Anonymous and authenticated clients get deny-by-default (no policy for them).
+CREATE POLICY "Service role manages account activations"
+  ON public.account_activations
+  AS PERMISSIVE
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================
 -- ACADEMIC STRUCTURE
@@ -537,6 +572,7 @@ ALTER TABLE news_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agent_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agent_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_activations ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies will be implemented after data seeding
 -- These are placeholder policies to be customized based on requirements
@@ -721,6 +757,45 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================
+-- ACCOUNT LIFECYCLE SYNC (status <-> is_active)
+-- ============================================
+-- `status` is the authoritative lifecycle field (pending/active/suspended/
+-- disabled). The legacy `is_active` boolean is preserved for transition-era
+-- readers/writers and kept synchronized by this trigger. Existing databases
+-- receive this via migrations/2026_09_05_phase0_identity_foundations.sql.
+CREATE OR REPLACE FUNCTION public.sync_profile_status()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.is_active := (NEW.status = 'active');
+  ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+    NEW.is_active := (NEW.status = 'active');
+  ELSIF NEW.is_active IS DISTINCT FROM OLD.is_active THEN
+    IF NEW.is_active THEN
+      IF OLD.status = 'suspended' THEN
+        NEW.status := 'active';
+      END IF;
+    ELSE
+      IF OLD.status = 'active' THEN
+        NEW.status := 'suspended';
+      END IF;
+    END IF;
+    NEW.is_active := (NEW.status = 'active');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_profiles_sync_status ON public.profiles;
+CREATE TRIGGER trg_profiles_sync_status
+    BEFORE INSERT OR UPDATE OF status, is_active ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION public.sync_profile_status();
+
+CREATE INDEX IF NOT EXISTS idx_profiles_status ON public.profiles (status);
 
 -- ============================================
 -- INITIALIZATION DATA

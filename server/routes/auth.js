@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/db.js';
+import { HttpError, sendError } from '../lib/httpError.js';
+import { requireString, requireEmail } from '../lib/validate.js';
+import { assertPasswordPolicy } from '../lib/password.js';
+import {
+  codeMatches,
+  normalizeActivationCode,
+  normalizeInstitutionalId,
+} from '../lib/activation.js';
 
 // ============================================
 // PORTAL AUTHENTICATION (DEVELOPMENT / DEMO)
@@ -287,6 +295,253 @@ router.post('/demo-login', async (req, res) => {
     return res.status(500).json({
       error: 'Sign-in is temporarily unavailable. Please try again in a moment.',
     });
+  }
+});
+
+// ============================================
+// POST /api/auth/activate  (Phase 1 — public, rate-limited)
+// Body: { institutionalId, email, activationCode, password }
+// ============================================
+// Activates a PENDING institutional account registered by administration:
+//   institutional ID + institutional email + one-time code + new password
+//     -> password set on the pre-created auth user (service role)
+//     -> activation code burned (single use)
+//     -> profile status pending -> active (sync trigger flips is_active)
+//
+// SECURITY:
+//   - Every rejection below returns the SAME generic message + code so
+//     nothing about account existence, email or state leaks
+//     (no enumeration); details are logged server-side only.
+//   - The code is compared timing-safe against its stored SHA-256 hash.
+//   - Passwords follow the shared policy (server/lib/password.js) and are
+//     handled exclusively by Supabase GoTrue — never stored by this app.
+//   - The role is NEVER accepted from the client; it already lives on the
+//     authoritative profile created by the registry.
+// ============================================
+const ACTIVATION_GENERIC_ERROR =
+  'Activation failed. Check your institutional ID, institutional email and activation code, then try again.';
+
+// --------------------------------------------
+// PHASE 2: Institutional ID + password login
+// --------------------------------------------
+// Public endpoint (no session yet). Replaces the demo ID-only login as the
+// production authentication path. The selected `portal` is UI context only;
+// the authoritative role always comes from the database profile.
+//
+// Flow:
+//   1. Resolve profile by profiles.institutional_id (authoritative identity).
+//   2. Enforce status === 'active' (deny pending/suspended/disabled).
+//   3. Authenticate the password server-side via supabase.signInWithPassword
+//      using the service-role client (the service key never reaches the browser).
+//   4. Authorize: if a portal was selected, it must match the DB role.
+//   5. Return session + safe profile summary. UseAuth/ProtectedRoute pick up
+//      the role via the normal JWT — no second auth system.
+const LOGIN_GENERIC_ERROR =
+  'Login failed. Check your institutional ID and password, then try again.';
+
+router.post('/login', async (req, res) => {
+  try {
+    if (isRateLimited(req.ip || 'unknown')) {
+      return res.status(429).json({
+        error: 'Too many attempts. Please wait a minute and try again.',
+      });
+    }
+
+    const institutionalId = normalizeInstitutionalId(
+      requireString(req.body?.institutionalId, 'institutionalId', { min: 2, max: 40 })
+    );
+    const password = requireString(req.body?.password, 'password', { min: 6, max: 128 });
+    const portal = req.body?.portal; // UI context only — not trusted for authorization
+
+    const fail = () => HttpError.badRequest(LOGIN_GENERIC_ERROR, 'LOGIN_FAILED');
+
+    // 1) Resolve identity by authoritative institutional_id.
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, status, institutional_id')
+      .eq('institutional_id', institutionalId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    // 2) Reject unknown identities (same message as a wrong password to avoid
+    //    confirming which institutional IDs exist) and non-active accounts.
+    if (!profile) {
+      console.warn(`[login] rejected — ${req.method} ${req.originalUrl} (unknown institutional id)`);
+      throw fail();
+    }
+    if (profile.status !== 'active') {
+      console.warn(
+        `[login] rejected — ${req.method} ${req.originalUrl} (status=${profile.status})`
+      );
+      throw fail();
+    }
+
+    // 3) Authenticate the password server-side. signInWithPassword against the
+    //    service-role client performs the same credential verification GoTrue
+    //    would for a browser client — without exposing the service key.
+    const email = profile.email;
+    const {
+      data: authData,
+      error: authError,
+    } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError || !authData?.session) {
+      console.warn(
+        `[login] rejected — ${req.method} ${req.originalUrl} (bad credentials, email=${email})`
+      );
+      throw fail();
+    }
+
+    const session = authData.session;
+
+    // 4) Authorize against the DATABASE role, not the frontend selection.
+    //    If a portal was selected, it must match the authoritative role.
+    if (portal && portal !== profile.role && !(portal === 'super_admin' && profile.role === 'admin')) {
+      console.warn(
+        `[login] portal mismatch — ${req.method} ${req.originalUrl} (selected=${portal}, actual=${profile.role})`
+      );
+      return res.status(403).json({
+        error: 'This account is not authorized for this portal.',
+        code: 'PORTAL_MISMATCH',
+        user: { id: profile.id, email: profile.email },
+        profile: safeProfile(profile),
+      });
+    }
+
+    // 5) Audit trail (non-blocking).
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: profile.id,
+        action: 'auth.login',
+        table_name: 'profiles',
+        record_id: profile.id,
+        new_values: { role: profile.role, portal_selected: portal || null },
+        ip_address: req.ip || null,
+        user_agent: req.get('user-agent') || null,
+      });
+    } catch (auditError) {
+      // Audit logging must never block authentication.
+      console.warn('[login] audit log insert failed:', auditError?.message);
+    }
+
+    // 6) Steps 7+ (ProtectedRoute / dashboards) consume this role via useAuth.
+    return res.json({
+      session,
+      user: { id: profile.id, email: profile.email },
+      profile: safeProfile(profile),
+      portal: { institutionalId, role: profile.role },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.post('/activate', async (req, res) => {
+  try {
+    if (isRateLimited(req.ip || 'unknown')) {
+      return res.status(429).json({
+        error: 'Too many attempts. Please wait a minute and try again.',
+      });
+    }
+
+    const institutionalId = normalizeInstitutionalId(
+      requireString(req.body?.institutionalId, 'institutionalId', { min: 2, max: 40 })
+    );
+    const email = requireEmail(req.body?.email, 'email');
+    const code = normalizeActivationCode(req.body?.activationCode);
+    requireString(code, 'activationCode', { min: 8, max: 64 });
+    assertPasswordPolicy(req.body?.password);
+    const password = req.body.password;
+
+    const fail = () => HttpError.badRequest(ACTIVATION_GENERIC_ERROR, 'ACTIVATION_FAILED');
+
+    // 1) Resolve the authoritative record.
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, status')
+      .eq('institutional_id', institutionalId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    if (!profile || profile.status !== 'pending' || profile.email.toLowerCase() !== email) {
+      console.warn(
+        `[activate] rejected — ${req.method} ${req.originalUrl} (${
+          !profile
+            ? 'unknown institutional id'
+            : profile.status !== 'pending'
+              ? `status=${profile.status}`
+              : 'email mismatch'
+        })`
+      );
+      throw fail();
+    }
+
+    // 2) One-time activation code: present, unused, unexpired, matching.
+    const { data: activation, error: activationError } = await supabase
+      .from('account_activations')
+      .select('code_hash, expires_at, used_at')
+      .eq('profile_id', profile.id)
+      .maybeSingle();
+    if (activationError) throw activationError;
+    const codeInvalid =
+      !activation ||
+      activation.used_at ||
+      new Date(activation.expires_at).getTime() < Date.now() ||
+      !codeMatches(code, activation.code_hash);
+    if (codeInvalid) {
+      console.warn(`[activate] rejected — ${req.method} ${req.originalUrl} (code invalid/expired/used)`);
+      throw fail();
+    }
+
+    // 3) Set the password on the pre-created auth user (service role).
+    const { error: passwordError } = await supabase.auth.admin.updateUserById(profile.id, {
+      password,
+    });
+    if (passwordError) {
+      console.error('[activate] password update failed:', passwordError.message);
+      throw new Error('activation password update failed');
+    }
+
+    // 4) Burn the code — guarded so only a still-unused code is consumed.
+    const { error: burnError } = await supabase
+      .from('account_activations')
+      .update({ used_at: new Date().toISOString() })
+      .eq('profile_id', profile.id)
+      .is('used_at', null);
+    if (burnError) throw burnError;
+
+    // 5) pending -> active (the sync trigger flips is_active with it).
+    const { error: statusError } = await supabase
+      .from('profiles')
+      .update({ status: 'active' })
+      .eq('id', profile.id)
+      .eq('status', 'pending');
+    if (statusError) throw statusError;
+
+    // 6) Audit trail.
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: profile.id,
+        action: 'account.activated',
+        table_name: 'profiles',
+        record_id: profile.id,
+        new_values: { institutional_id: institutionalId, role: profile.role },
+        ip_address: req.ip || null,
+        user_agent: req.get('user-agent') || null,
+      });
+    } catch (auditError) {
+      console.warn('[activate] audit log insert failed:', auditError?.message);
+    }
+
+    return res.json({
+      data: {
+        activated: true,
+        role: profile.role,
+        fullName: profile.full_name,
+      },
+    });
+  } catch (error) {
+    sendError(res, error);
   }
 });
 

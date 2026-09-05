@@ -50,12 +50,18 @@ export default function AdminUsers() {
     fullName: '',
     email: '',
     password: '',
+    institutionalId: '',
     enrollmentNumber: '',
     employeeId: '',
     semesterNumber: '',
+    requireActivation: false,
   });
+  const [activation, setActivation] = useState(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState(null);
+
+  // One-time activation codes are displayed grouped for readability.
+  const formatCode = (code) => String(code).replace(/(.{4})(?=.)/g, '$1-');
 
   const flash = (msg) => {
     setNotice(msg);
@@ -89,6 +95,41 @@ export default function AdminUsers() {
   const provision = async (e) => {
     e.preventDefault();
     setFormError(null);
+    setActivation(null);
+
+    // --- Registry mode (Phase 1): create a PENDING authoritative identity.
+    // The person activates with the one-time code + their own password; the
+    // role comes from the registry entry, never from the person.
+    if (form.requireActivation) {
+      if (!form.fullName.trim() || !form.email.trim() || !form.institutionalId.trim()) {
+        setFormError('Name, institutional email and institutional ID are required');
+        return;
+      }
+      setCreating(true);
+      try {
+        const res = await api.post('/api/users/registry', {
+          institutionalId: form.institutionalId.trim(),
+          fullName: form.fullName.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          semesterNumber:
+            form.role === 'student' && form.semesterNumber
+              ? Number(form.semesterNumber)
+              : undefined,
+        });
+        setActivation(res?.data || null);
+        setForm((f) => ({ ...f, fullName: '', email: '', institutionalId: '', semesterNumber: '' }));
+        await load(1);
+      } catch (err) {
+        setFormError(err.message || 'Failed to register identity');
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
+
+    // --- Direct provisioning mode (unchanged): active account with an
+    //     initial password delivered out-of-band by the administrator.
     if (!form.fullName.trim() || !form.email.trim() || !form.password) {
       setFormError('Name, email and password are required');
       return;
@@ -134,36 +175,69 @@ export default function AdminUsers() {
                 ))}
               </select>
             </Field>
+            <label className="flex items-center gap-2 text-sm text-text-muted self-end pb-2">
+              <input
+                type="checkbox"
+                checked={form.requireActivation}
+                onChange={(e) => setForm((f) => ({ ...f, requireActivation: e.target.checked }))}
+                className="h-4 w-4 rounded"
+              />
+              Registry activation — create as PENDING, person activates with a one-time code
+            </label>
             <Field label="Full name">
               <input type="text" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} className={inputCls} placeholder="e.g. Aarav Sharma" />
             </Field>
             <Field label="Institutional email">
               <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} placeholder="name@mbscet.in" autoComplete="off" />
             </Field>
-            <Field label="Initial password (min 10 chars, mixed case, digit, symbol)">
-              <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} autoComplete="new-password" />
-            </Field>
+            {form.requireActivation ? (
+              <Field label="Institutional ID (issued by the college — becomes the login identity)">
+                <input type="text" value={form.institutionalId} onChange={(e) => setForm((f) => ({ ...f, institutionalId: e.target.value }))} className={inputCls} placeholder="e.g. MBSCET-STU-2026-00123" autoComplete="off" />
+              </Field>
+            ) : (
+              <Field label="Initial password (min 10 chars, mixed case, digit, symbol)">
+                <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} autoComplete="new-password" />
+              </Field>
+            )}
             {form.role === 'student' && (
               <>
-                <Field label="Enrollment number">
-                  <input type="text" value={form.enrollmentNumber} onChange={(e) => setForm((f) => ({ ...f, enrollmentNumber: e.target.value }))} className={inputCls} placeholder="e.g. STU2026-014" />
-                </Field>
+                {!form.requireActivation && (
+                  <Field label="Enrollment number">
+                    <input type="text" value={form.enrollmentNumber} onChange={(e) => setForm((f) => ({ ...f, enrollmentNumber: e.target.value }))} className={inputCls} placeholder="e.g. STU2026-014" />
+                  </Field>
+                )}
                 <Field label="Semester (optional)">
                   <input type="number" min="1" max="10" value={form.semesterNumber} onChange={(e) => setForm((f) => ({ ...f, semesterNumber: e.target.value }))} className={inputCls} />
                 </Field>
               </>
             )}
-            {form.role === 'teacher' && (
+            {form.role === 'teacher' && !form.requireActivation && (
               <Field label="Employee ID">
                 <input type="text" value={form.employeeId} onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))} className={inputCls} placeholder="e.g. TCH2026-07" />
               </Field>
+            )}
+            {activation && (
+              <div className="sm:col-span-2 bg-warning/10 border border-warning/30 rounded-soft p-4">
+                <p className="text-sm font-semibold text-warning-dark mb-1">
+                  Activation code for {activation.institutional_id} — shown only once
+                </p>
+                <p className="font-mono text-lg tracking-widest text-text-main select-all break-all">
+                  {formatCode(activation.activationCode)}
+                </p>
+                <p className="text-xs text-text-muted mt-2">
+                  Deliver it to the person together with their institutional ID and institutional
+                  email ({activation.email}). They activate at <span className="font-medium">/activate</span>{' '}
+                  with this code and a new password. Expires{' '}
+                  {new Date(activation.activationExpiresAt).toLocaleString()}.
+                </p>
+              </div>
             )}
             <div className="sm:col-span-2">
               <ErrorNote message={formError} />
             </div>
             <div className="sm:col-span-2">
               <button type="submit" disabled={creating} className="bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark disabled:opacity-60 transition text-sm font-medium">
-                {creating ? 'Creating…' : 'Create account'}
+                {creating ? 'Creating…' : form.requireActivation ? 'Register identity' : 'Create account'}
               </button>
             </div>
           </form>
@@ -212,6 +286,7 @@ export default function AdminUsers() {
                   <Badge tone={roleTone(u.role)}>{u.role}</Badge>
                   {u.students?.enrollment_number && <Badge>{u.students.enrollment_number}</Badge>}
                   {u.teachers?.employee_id && <Badge>{u.teachers.employee_id}</Badge>}
+                  {u.status && u.status !== 'active' && <Badge tone="amber">{u.status}</Badge>}
                   <Badge tone={u.is_active ? 'green' : 'gray'}>{u.is_active ? 'active' : 'inactive'}</Badge>
                 </div>
               ))}

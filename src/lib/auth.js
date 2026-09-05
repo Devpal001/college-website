@@ -68,6 +68,30 @@ export async function signInWithEmail(email, password) {
 }
 
 /**
+ * Sign in with a college-issued institutional ID + password.
+ * The backend (/api/auth/login) resolves the profile by institutional_id
+ * and authenticates the password server-side — the browser never sees the
+ * service key, and the selected portal is UI context only (the authoritative
+ * role comes from the database). On success the issued session is stored so
+ * useAuth / ProtectedRoute / Navbar pick it up via the normal flow.
+ */
+export async function signInWithInstitutionalId(institutionalId, password, portal) {
+  const { session, profile, user, portal: resolvedPortal } = await api.post('/auth/login', {
+    institutionalId,
+    password,
+    portal,
+  });
+
+  const { error } = await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (error) throw error;
+
+  return { session, profile, user, portal: resolvedPortal };
+}
+
+/**
  * Sign out current user
  */
 export async function signOut() {

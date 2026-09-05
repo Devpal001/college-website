@@ -1,0 +1,10 @@
+﻿const fs = require('fs');
+const p = 'src/pages/Login.jsx';
+const s = fs.readFileSync(p, 'utf8');
+console.log('bytes:', s.length);
+console.log('lines:', s.split('\n').length);
+console.log('has signInWithInstitutionalId:', s.includes('signInWithInstitutionalId'));
+console.log('has signInWithPortalId:', s.includes('signInWithPortalId'));
+console.log('has signInWithEmail:', s.includes('signInWithEmail'));
+console.log('has handlePortalLogin:', s.includes('handlePortalLogin'));
+console.log('has handleEmailLogin:', s.includes('handleEmailLogin'));

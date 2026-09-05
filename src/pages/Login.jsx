@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { signInWithPortalId, signInWithEmail, getUserProfile, dashboardPathForRole } from '../lib/auth';
+import { signInWithPortalId, signInWithInstitutionalId, signInWithEmail, getUserProfile, dashboardPathForRole } from '../lib/auth';
 import { useAuth } from '../hooks/useAuth';
 import {
   GraduationCap,
@@ -17,19 +17,17 @@ import {
 } from 'lucide-react';
 
 // ============================================
-// PORTAL LOGIN (DEVELOPMENT / DEMO VERSION)
+// PORTAL LOGIN (INSTITUTIONAL ID + PASSWORD)
 // ============================================
-// One authentication flow with role-aware sign-in. The user picks a portal
-// (Student / Teacher / Admin), enters their institutional ID, and the
-// EXPRESS BACKEND (/api/auth/demo-login) verifies that the ID belongs to
-// that role and issues a real Supabase session.
+// Production authentication flow with role-aware sign-in. The user picks a
+// portal (Student / Teacher / Admin), enters their institutional ID and
+// password, and the EXPRESS BACKEND (/api/auth/login) verifies credentials
+// against the institutional directory and issues a real Supabase session.
 //
-// ⚠️ This ID-only login is intentionally FOR DEVELOPMENT/DEMO ONLY. It is
-//    NOT production-secure. Before deploying to production, replace it with
-//    password / PIN / institutional SSO authentication (the architecture
-//    is ready: swap the sign-in call below for signInWithPassword or SSO —
-//    ProtectedRoute, dashboards, and every API keep working unchanged).
-//    See also server/routes/auth.js and DISABLE_DEMO_LOGIN in .env.
+// In DEVELOPMENT ONLY, a password-less demo login (signInWithPortalId) is
+// available for rapid prototyping — it is disabled in production.
+//
+// The legacy email/password flow is preserved as a secondary option.
 
 const PORTALS = [
   {
@@ -81,10 +79,10 @@ export default function PortalLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDemoIds, setShowDemoIds] = useState(false);
-  const [mode, setMode] = useState(import.meta.env.PROD ? 'email' : 'portal'); // 'portal' | 'email'
-  // Production uses real email/password (Supabase GoTrue). The ID-only portal
-  // login is development-only (server fails it closed in production), so hide
-  // it and the demo banner entirely when built for production.
+  const [mode, setMode] = useState('portal'); // 'portal' | 'email'
+  // Portal sign-in is the primary flow in all environments. In production it
+  // requires institutional ID + password (signInWithInstitutionalId). In
+  // development it falls back to the password-less demo (signInWithPortalId).
   const IS_PROD = import.meta.env.PROD;
 
   // Legacy email/password fields (kept so the old flow still works).
@@ -117,10 +115,19 @@ export default function PortalLogin() {
       setError(`Please enter your ${portal} ID to continue.`);
       return;
     }
+    // In production, institutional login requires a password.
+    if (IS_PROD && !password) {
+      setError('Please enter your password.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const { profile } = await signInWithPortalId(portalId.trim(), portal);
+      // Production: institutional ID + password authentication.
+      // Development: password-less demo login (server-enforced).
+      const { profile } = IS_PROD
+        ? await signInWithInstitutionalId(portalId.trim(), password, portal)
+        : await signInWithPortalId(portalId.trim(), portal);
       navigate(dashboardPathForRole(profile.role), { replace: true });
     } catch (err) {
       setError(friendlyAuthError(err.status, err.message));
@@ -174,7 +181,7 @@ export default function PortalLogin() {
             </p>
           </div>
 
-          {mode === 'portal' && !IS_PROD ? (
+          {mode === 'portal' ? (
             <>
               {/* Role picker */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Choose a portal">
@@ -236,6 +243,30 @@ export default function PortalLogin() {
                       : 'Select Student, Teacher or Admin to continue.'}
                   </p>
                 </div>
+
+                {/* Password field — required for production institutional login */}
+                {IS_PROD && (
+                  <div>
+                    <label htmlFor="portal-password" className="text-sm text-text-muted block mb-1">Password</label>
+                    <div className="relative">
+                      <KeyRound size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        id="portal-password"
+                        type="password"
+                        required
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          setError('');
+                        }}
+                        disabled={!portal}
+                        placeholder="Your password"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {error && (
                   <div role="alert" className="bg-error/10 border border-error/20 rounded-soft p-3 flex gap-2">
@@ -354,20 +385,19 @@ export default function PortalLogin() {
                 </button>
               </form>
 
-              {!IS_PROD && (
-                <div className="mt-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('portal');
-                      setError('');
-                    }}
-                    className="text-sm text-primary font-medium hover:underline"
-                  >
-                    ← Back to Portal ID sign in
-                  </button>
-                </div>
-              )}
+              {/* Switch back to institutional portal login */}
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('portal');
+                    setError('');
+                  }}
+                  className="text-sm text-primary font-medium hover:underline"
+                >
+                  ← Back to Portal ID sign in
+                </button>
+              </div>
             </>
           )}
 
