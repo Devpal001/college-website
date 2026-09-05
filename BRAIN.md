@@ -227,6 +227,21 @@ User → /login → email/password form → signInWithEmail() → Supabase GoTru
 Post-login routing is deterministic: `Login` resolves the profile, then navigates to
 `dashboardPathForRole(profile.role)` (fixed 2026-09-05 — see §2 polish pass).
 
+### Account provisioning model & dashboard error states (2026-09-05)
+
+- Self-signup (`/signup` → `supabase.auth.signUp`) creates **auth user + `profiles` row
+  only** (`handle_new_user()` trigger; role defaults to `'student'`). It never creates a
+  `students` academic record.
+- Academic records (`students` / `teachers` rows) are provisioned by ADMINISTRATION
+  (`POST /api/users/admin`: auth user → profile → role row) or by the dev seed script.
+- Single identifier chain: `auth.users.id === profiles.id === students.profile_id /
+  teachers.profile_id`. There is no second identity system and no identifier mismatch.
+- `getStudentForAuth` / `getTeacherForAuth` (`middleware/auth.js`) distinguish outcomes:
+  zero role rows → 404 + code `STUDENT_PROFILE_MISSING` / `TEACHER_PROFILE_MISSING`
+  (honest "record not linked yet" dashboard state, no retry button); database/service
+  failure → 500 + code `*_LOOKUP_FAILED` (retryable, logged server-side). DB errors are
+  never reported as "profile not found". No error flow redirects to the public home page.
+
 ### Student → StudentDashboard → overview/attendance/marks/timetable → GET /api/students/me/dashboard
 ### Teacher → TeacherDashboard → dashboard/classes/attendance/marks entry → POST /api/marks (scoped)
 ### Admin → AdminDashboard → News/AI Agent/Users → publish news → live feed updates
@@ -436,6 +451,8 @@ git push origin main
 - Email notifications: NOT WIRED (optional future feature)
 - AI uses keyword heuristics when no `OPENAI_API_KEY` (optional)
 - 20 pending news items await manual review (content, not a bug)
+- Self-registered accounts (`/signup`) can log in but see a "record not linked" dashboard
+  state until administration provisions their academic record (by design — see §7)
 
 ---
 
