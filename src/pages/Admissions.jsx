@@ -195,7 +195,7 @@ function Admissions() {
       {/* CTA */}
       <section className="px-6 py-16 text-center">
         <h2 className="text-2xl font-bold text-text-main">Have questions?</h2>
-        <p className="text-text-muted mt-3">Our admissions team is here to help.</p>
+        <p className="text-text-muted mt-3 mx-auto">Our admissions team is here to help.</p>
         <Link
           to="/contact"
           className="inline-block mt-6 bg-primary text-white px-6 py-3 rounded-soft shadow-soft hover:bg-primary-dark transition"

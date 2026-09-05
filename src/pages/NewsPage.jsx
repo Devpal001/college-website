@@ -275,11 +275,11 @@ useEffect(() => {
               className="mx-auto mb-3 opacity-40"
             />
 
-            <p className="font-medium">
+            <p className="font-medium mx-auto">
               No news published yet.
             </p>
 
-            <p className="text-sm">
+            <p className="text-sm mx-auto">
               Check back soon — announcements will appear here.
             </p>
           </div>

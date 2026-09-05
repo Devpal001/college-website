@@ -29,7 +29,7 @@ export default function Gallery() {
   return (
     <div className="min-h-screen bg-bg-soft">
       {/* Header */}
-      <section className="container-lg py-32 text-center">
+      <section className="container-lg py-24 text-center">
         <h1 className="text-4xl md:text-5xl font-bold text-text-main mb-4">Photo Gallery</h1>
         <p className="text-text-muted text-lg max-w-2xl mx-auto">
           Explore life at MBSCET through our collection of campus events, facilities, and celebrations.

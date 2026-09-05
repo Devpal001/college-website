@@ -11,7 +11,7 @@ function Home() {
     <div>
       {/* Hero Section */}
 <section
-  className="relative container-lg py-32 text-center overflow-hidden fade-in"
+  className="relative container-lg py-24 text-center overflow-hidden fade-in"
   style={{
     backgroundImage: `url(${campusImg})`,
     backgroundSize: 'cover',
@@ -29,7 +29,7 @@ function Home() {
       A spirituo-educational community inspired by Mahant Bachittar Singh Ji,
       committed to providing learners with excellent erudition.
     </p>
-    <p className="text-xs md:text-sm text-text-muted mt-4 font-normal tracking-wide">
+    <p className="text-xs md:text-sm text-text-muted mt-4 font-normal tracking-wide mx-auto">
     A Constituent of Sant Manjit Singh Trust · Approved by AICTE New Delhi · Govt. of J&K · Affiliated to University of Jammu
     </p>
     <div className="mt-8 flex gap-4 justify-center">
@@ -50,7 +50,7 @@ function Home() {
 </section>
 <PhotoCarousel />
       {/* Highlights Section */}
-      <section ref={highlightsRef} className="container-lg py-32 text-center bg-bg-soft">
+      <section ref={highlightsRef} className="container-lg py-24 text-center bg-bg-soft">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className={`card-base card-hover p-8 text-center scroll-animate stagger-1 ${highlightsVisible ? 'is-visible' : ''}`}>
   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-soft shadow-inset flex items-center justify-center">
@@ -85,9 +85,9 @@ function Home() {
       </section>
 
       {/* CTA Section */}
-     <section ref={ctaRef} className={`container-lg py-32 text-center bg-bg-soft scroll-animate ${ctaVisible ? 'is-visible' : ''}`}>
+     <section ref={ctaRef} className={`container-lg py-24 text-center bg-bg-soft scroll-animate ${ctaVisible ? 'is-visible' : ''}`}>
         <h2 className="text-3xl md:text-4xl font-bold text-text-main">Ready to get started?</h2>
-        <p className="text-text-muted mt-3 text-lg">Applications for the next intake are open now.</p>
+        <p className="text-text-muted mt-3 text-lg mx-auto">Applications for the next intake are open now.</p>
         <Link
           to="/contact"
           className="btn-primary inline-block mt-6 px-8 py-4 rounded-soft shadow-soft"

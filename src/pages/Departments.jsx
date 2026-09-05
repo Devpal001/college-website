@@ -17,7 +17,7 @@ function Departments() {
   return (
     <div>
       {/* Header */}
-      <section ref={headerRef} className={`container-lg py-32 text-center bg-bg-soft scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
+      <section ref={headerRef} className={`container-lg py-24 text-center bg-bg-soft scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
         <h1 className="text-4xl md:text-5xl font-bold text-text-main">Departments</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto text-lg">
           Eight departments, one mission — preparing engineers for a changing world.
@@ -109,10 +109,10 @@ function Departments() {
 
       {/* M.Tech note */}
       <section className="container-lg pb-16 max-w-3xl mx-auto text-center">
-        <p className="text-text-muted text-sm">
+        <p className="text-text-muted text-sm mx-auto">
           M.Tech programs in CSE, EE, ME, and ECE are AICTE-approved; final approval from the J&K Government and University of Jammu is in process.
         </p>
-        <p className="text-text-muted text-xs mt-2">
+        <p className="text-text-muted text-xs mt-2 mx-auto">
           Click on any department card to learn more about that specific branch.
         </p>
       </section>

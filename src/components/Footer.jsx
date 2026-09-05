@@ -54,7 +54,7 @@ const linkGroups = [
 
 function Footer() {
   return (
-    <footer className="w-full bg-surface shadow-soft mt-16 rounded-t-soft-lg text-text-muted">
+    <footer className="w-full bg-surface shadow-soft mt-8 rounded-t-soft-lg text-text-muted">
       {/* Link groups */}
       <div className="max-w-6xl mx-auto px-6 pt-10 pb-8 grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-text-muted/15">
         {linkGroups.map((group) => (
