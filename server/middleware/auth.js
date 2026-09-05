@@ -81,18 +81,46 @@ export function requireRole(...roles) {
 
 /**
  * Loads the student record for the authenticated user.
- * Returns null (with res response already sent) if the user is not a student.
+ * Returns null (with res response already sent) if the user has no student
+ * record or the lookup fails.
+ *
+ * Error discrimination (never collapse these):
+ * - Query succeeded, zero rows  -> 404 + code STUDENT_PROFILE_MISSING.
+ *   The account is authenticated and role-detected, but no `students` row is
+ *   linked to it: self-signup (handle_new_user trigger) creates a profiles row
+ *   only — academic records are provisioned by administration
+ *   (POST /api/users/admin) or the dev seed. Retrying cannot change this.
+ * - Genuine database/service failure -> 500 + code STUDENT_LOOKUP_FAILED,
+ *   logged server-side, retryable. A DB error must NEVER be reported as
+ *   "profile not found".
  * @returns {Promise<object|null>} student record or null
  */
 export async function getStudentForAuth(req, res) {
+  // .maybeSingle() lets us tell "query succeeded, zero rows" (data === null,
+  // error === null) apart from a real query failure (error set).
   const { data: student, error } = await supabase
     .from('students')
     .select('*')
     .eq('profile_id', req.user.id)
-    .single();
+    .maybeSingle();
 
-  if (error || !student) {
-    res.status(404).json({ error: 'Student profile not found. Contact administration.' });
+  if (!error && student === null) {
+    res.status(404).json({
+      error:
+        'No student record is linked to this account yet. Please contact administration to complete your enrollment.',
+      code: 'STUDENT_PROFILE_MISSING',
+    });
+    return null;
+  }
+
+  if (error) {
+    console.error(
+      `[auth] student lookup failed — ${req.method} ${req.originalUrl} (${error.message})`
+    );
+    res.status(500).json({
+      error: 'Unable to load your student record right now. Please try again in a moment.',
+      code: 'STUDENT_LOOKUP_FAILED',
+    });
     return null;
   }
 
@@ -101,7 +129,9 @@ export async function getStudentForAuth(req, res) {
 
 /**
  * Loads the teacher record for the authenticated user.
- * Returns null (with res response already sent) if the user is not a teacher.
+ * Returns null (with res response already sent) if the user has no teacher
+ * record or the lookup fails. Same discrimination contract as
+ * getStudentForAuth (TEACHER_PROFILE_MISSING vs TEACHER_LOOKUP_FAILED).
  * @returns {Promise<object|null>} teacher record or null
  */
 export async function getTeacherForAuth(req, res) {
@@ -109,10 +139,25 @@ export async function getTeacherForAuth(req, res) {
     .from('teachers')
     .select('*')
     .eq('profile_id', req.user.id)
-    .single();
+    .maybeSingle();
 
-  if (error || !teacher) {
-    res.status(404).json({ error: 'Teacher profile not found. Contact administration.' });
+  if (!error && teacher === null) {
+    res.status(404).json({
+      error:
+        'No teacher record is linked to this account yet. Please contact administration to complete your onboarding.',
+      code: 'TEACHER_PROFILE_MISSING',
+    });
+    return null;
+  }
+
+  if (error) {
+    console.error(
+      `[auth] teacher lookup failed — ${req.method} ${req.originalUrl} (${error.message})`
+    );
+    res.status(500).json({
+      error: 'Unable to load your teacher record right now. Please try again in a moment.',
+      code: 'TEACHER_LOOKUP_FAILED',
+    });
     return null;
   }
 

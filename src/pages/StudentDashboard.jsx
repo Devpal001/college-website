@@ -70,6 +70,7 @@ function SectionTitle({ children }) {
 function StudentDashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -88,12 +89,14 @@ function StudentDashboard() {
 
   const loadDashboard = useCallback(async () => {
     setError('');
+    setErrorCode('');
     setLoading(true);
     try {
       const d = await api.get('/students/me/dashboard');
       setData(d);
     } catch (e) {
       setError(e.message);
+      setErrorCode(e.code || '');
     } finally {
       setLoading(false);
     }
@@ -112,6 +115,21 @@ function StudentDashboard() {
   }
 
   if (error) {
+    // The account is authenticated but no student record is linked to it yet
+    // (academic records are provisioned by administration). Retrying cannot
+    // change this outcome, so this state gets its own screen instead of a
+    // retry loop. No redirect — the student stays on their dashboard route.
+    if (errorCode === 'STUDENT_PROFILE_MISSING') {
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center px-6">
+          <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
+            <p className="text-error font-medium mb-2">Student record not linked yet</p>
+            <p className="text-sm text-text-muted">{error}</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-6">
         <div className="bg-surface rounded-soft-lg shadow-soft p-8 text-center max-w-md">
