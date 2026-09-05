@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { signInWithPortalId, signInWithEmail, dashboardPathForRole } from '../lib/auth';
+import { signInWithPortalId, signInWithEmail, getUserProfile, dashboardPathForRole } from '../lib/auth';
 import { useAuth } from '../hooks/useAuth';
 import {
   GraduationCap,
@@ -92,10 +92,14 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('');
 
   // If an auth session already exists, go straight to the right dashboard.
-  if (!authLoading && user) {
+  // Redirect only once the role is KNOWN (profile loaded): while the profile
+  // is still being fetched we keep rendering the form instead of guessing a
+  // role — the previous `role || 'student'` guess could send non-students to
+  // the wrong dashboard in the window right after sign-in.
+  if (!authLoading && user && profile) {
     const fromPath = location.state?.from?.pathname;
     const fromIsProtected = fromPath && !['/login', '/signup', '/unauthorized'].includes(fromPath);
-    const target = fromIsProtected ? fromPath : dashboardPathForRole(profile?.role || 'student');
+    const target = fromIsProtected ? fromPath : dashboardPathForRole(profile.role);
     return <Navigate to={target} replace />;
   }
 
@@ -130,8 +134,12 @@ export default function PortalLogin() {
     setError('');
     setLoading(true);
     try {
-      await signInWithEmail(email, password);
-      navigate('/', { replace: true });
+      const { user: authUser } = await signInWithEmail(email, password);
+      // Route to the role's own dashboard (same contract as the portal-ID
+      // login). The old `navigate('/')` raced with the session-aware redirect
+      // above and dropped successfully signed-in users on the home page.
+      const profile = await getUserProfile(authUser.id);
+      navigate(dashboardPathForRole(profile.role), { replace: true });
     } catch (err) {
       // The legacy flow keeps its own (already friendly) message convention.
       if (String(err.message || '').includes('Invalid login credentials')) {
