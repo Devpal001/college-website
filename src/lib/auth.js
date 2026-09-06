@@ -64,6 +64,21 @@ export async function signInWithEmail(email, password) {
   });
 
   if (error) throw error;
+
+  // Phase 3 account-status enforcement: even though the backend blocks
+  // protected API requests for non-active accounts, we also reject here so the
+  // frontend does not enter a logged-in-but-blocked state.
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('status')
+    .eq('id', data.user.id)
+    .single();
+
+  if (profileError || !profile || profile.status !== 'active') {
+    await supabase.auth.signOut();
+    throw new Error('Account is not active');
+  }
+
   return data;
 }
 

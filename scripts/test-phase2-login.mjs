@@ -129,6 +129,33 @@ async function main() {
   }
 
   console.log('');
+  console.log('  [Test 7d] Demo login rejects non-active accounts');
+  if (student) {
+    await service.from('profiles').update({ status: 'suspended' }).eq('id', student.id);
+    const t7d = await api('/api/auth/demo-login', { method: 'POST', body: { portalId: 'STU001', role: 'student' } });
+    ok('7d-1. Suspended demo login 404', t7d.status === 404, 'status ' + t7d.status);
+    ok('7d-2. Suspended demo generic message', t7d.body?.error === 'No account found for this ID. Check the ID and the selected portal, then try again.');
+    await service.from('profiles').update({ status: 'active' }).eq('id', student.id);
+  }
+
+  console.log('');
+  console.log('  [Test 7e] Protected API rejects previously-issued session after suspension');
+  if (student) {
+    const preSession = await api('/api/auth/login', { method: 'POST', body: { institutionalId: 'STU001', password: TEST_PASSWORD, portal: 'student' } });
+    const token = preSession.body?.session?.access_token;
+    if (token) {
+      await service.from('profiles').update({ status: 'suspended' }).eq('id', student.id);
+      const afterSuspensionRes = await fetch(`${BASE_URL}/api/students/me/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const afterSuspension = { status: afterSuspensionRes.status, body: await afterSuspensionRes.json().catch(() => null) };
+      ok('7e-1. Suspended account blocked on protected API', afterSuspension.status === 403, 'status ' + afterSuspension.status);
+      ok('7e-2. Account not active message', afterSuspension.body?.error === 'Account is not active');
+      await service.from('profiles').update({ status: 'active' }).eq('id', student.id);
+    }
+  }
+
+  console.log('');
   console.log('  [Test 8] Authoritative role from database');
   const t8a = await api('/api/auth/login', { method: 'POST', body: { institutionalId: 'STU001', password: TEST_PASSWORD, portal: 'admin' } });
   ok('8a. Student cannot be admin (403)', t8a.status === 403, 'status ' + t8a.status);

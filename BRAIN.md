@@ -281,10 +281,10 @@ Post-login routing is deterministic: `Login` resolves the profile, then navigate
   have NO policy (no access). The Express API's server-side `service_role` is granted
   access through one `--privileged` `FOR ALL` policy (required for non-owner tables;
   privilege is not granted to browsers).
-- **Transitional state:** pending accounts cannot authenticate (unknown random password;
-  demo-login rejects `is_active=false`). Legacy email/password login is preserved for
-  active accounts (Decision 5). Phase 2 (unified institutional-ID login) and Phase 3
-  (`authRequired` status enforcement) are not yet implemented.
+ - **Transitional state:** pending accounts cannot authenticate (unknown random password;
+   demo-login checks `status != 'active'`). Legacy email/password login is preserved for
+   active accounts (Decision 5). Phase 2 unified institutional-ID login and Phase 3
+   (`authRequired` status enforcement + frontend `signInWithEmail` status gate) are implemented.
 - E2E verification script: `node scripts/test-activation.mjs` (self-cleaning — creates and
   deletes one `TEST-ACT-STU` identity; requires the dev server + demo seed).
 
@@ -363,6 +363,7 @@ Browser renders UI
 | Demo login gate | Accidental ID-only login in prod | `server/routes/auth.js` + `render.yaml` | Fail-closed; `DISABLE_DEMO_LOGIN=true` in prod |
 | Service-role isolation | Secret key exposure | `server/lib/db.js` + `.env` gitignored | NEVER imported by frontend |
 | Error sanitization | DB/internal leakage | `server/lib/httpError.js` + global handler | Generic messages to client |
+| Account status enforcement | Non-active account access | `middleware/auth.js` + `server/routes/auth.js` | `pending`/`suspended`/`disabled` blocked on login and protected API |
 
 ---
 

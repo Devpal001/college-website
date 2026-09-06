@@ -86,17 +86,6 @@ CREATE TABLE account_activations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Service-role access for the Express API — marked --privileged so it bypasses
--- RLS (and satisfies PostgREST's role-grant requirement for non-owner tables).
--- Anonymous and authenticated clients get deny-by-default (no policy for them).
-CREATE POLICY "Service role manages account activations"
-  ON public.account_activations
-  AS PERMISSIVE
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
-
 -- ============================================
 -- ACADEMIC STRUCTURE
 -- ============================================
@@ -248,6 +237,7 @@ CREATE TABLE attendance (
   marked_by UUID REFERENCES teachers(id) ON DELETE SET NULL,
   marked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   notes TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(session_id, student_id)
 );
 
@@ -330,6 +320,18 @@ CREATE TABLE documents (
   uploaded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Admissions
+CREATE TABLE admissions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  course_applied TEXT,
+  message TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'accepted', 'rejected'))
 );
 
 -- ============================================
@@ -573,9 +575,21 @@ ALTER TABLE ai_agent_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agent_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE account_activations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admissions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies will be implemented after data seeding
--- These are placeholder policies to be customized based on requirements
+-- Helper functions for non-recursive role checks (used by RLS policies)
+CREATE OR REPLACE FUNCTION auth_is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION auth_current_role()
+RETURNS TEXT AS $$
+  SELECT role FROM profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Profile policies
 CREATE POLICY "Users can view own profile" ON profiles
@@ -585,20 +599,11 @@ CREATE POLICY "Users can update own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Admins can view all profiles" ON profiles
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
-        )
-    );
+    FOR SELECT USING (auth_is_admin());
 
 -- Student policies
 CREATE POLICY "Students can view own data" ON students
-    FOR SELECT USING (
-        profile_id IN (
-            SELECT id FROM profiles WHERE id = auth.uid()
-        )
-    );
+    FOR SELECT USING (profile_id = auth.uid());
 
 CREATE POLICY "Teachers can view their students" ON students
     FOR SELECT USING (
@@ -606,36 +611,21 @@ CREATE POLICY "Teachers can view their students" ON students
             SELECT 1 FROM teacher_subjects ts
             JOIN semesters s ON ts.semester_id = s.id
             JOIN enrollments e ON s.id = e.semester_id
-            WHERE ts.teacher_id IN (
-                SELECT id FROM teachers WHERE profile_id = auth.uid()
-            )
-            AND e.student_id = students.id
+            JOIN teachers t ON ts.teacher_id = t.id
+            WHERE t.profile_id = auth.uid()
+              AND e.student_id = students.id
         )
     );
 
 CREATE POLICY "Admins can view all students" ON students
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
-        )
-    );
+    FOR ALL USING (auth_is_admin());
 
 -- Teacher policies
 CREATE POLICY "Teachers can view own data" ON teachers
-    FOR SELECT USING (
-        profile_id IN (
-            SELECT id FROM profiles WHERE id = auth.uid()
-        )
-    );
+    FOR SELECT USING (profile_id = auth.uid());
 
 CREATE POLICY "Admins can view all teachers" ON teachers
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
-        )
-    );
+    FOR ALL USING (auth_is_admin());
 
 -- Attendance policies
 CREATE POLICY "Students can view own attendance" ON attendance
@@ -648,7 +638,7 @@ CREATE POLICY "Students can view own attendance" ON attendance
 CREATE POLICY "Teachers can view class attendance" ON attendance
     FOR SELECT USING (
         session_id IN (
-            SELECT id FROM attendance_sessions 
+            SELECT id FROM attendance_sessions
             WHERE teacher_id IN (
                 SELECT id FROM teachers WHERE profile_id = auth.uid()
             )
@@ -658,7 +648,7 @@ CREATE POLICY "Teachers can view class attendance" ON attendance
 CREATE POLICY "Teachers can mark attendance" ON attendance
     FOR INSERT WITH CHECK (
         session_id IN (
-            SELECT id FROM attendance_sessions 
+            SELECT id FROM attendance_sessions
             WHERE teacher_id IN (
                 SELECT id FROM teachers WHERE profile_id = auth.uid()
             )
@@ -676,9 +666,9 @@ CREATE POLICY "Students can view own marks" ON marks
 CREATE POLICY "Teachers can view subject marks" ON marks
     FOR SELECT USING (
         assessment_id IN (
-            SELECT id FROM assessments 
+            SELECT id FROM assessments
             WHERE subject_id IN (
-                SELECT subject_id FROM teacher_subjects 
+                SELECT subject_id FROM teacher_subjects
                 WHERE teacher_id IN (
                     SELECT id FROM teachers WHERE profile_id = auth.uid()
                 )
@@ -689,9 +679,9 @@ CREATE POLICY "Teachers can view subject marks" ON marks
 CREATE POLICY "Teachers can enter marks" ON marks
     FOR INSERT WITH CHECK (
         assessment_id IN (
-            SELECT id FROM assessments 
+            SELECT id FROM assessments
             WHERE subject_id IN (
-                SELECT subject_id FROM teacher_subjects 
+                SELECT subject_id FROM teacher_subjects
                 WHERE teacher_id IN (
                     SELECT id FROM teachers WHERE profile_id = auth.uid()
                 )
@@ -714,24 +704,79 @@ CREATE POLICY "Public can view published news" ON news_items
     FOR SELECT USING (is_published = true);
 
 CREATE POLICY "Admins can manage news" ON news_items
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
+    FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+
+-- Public read for reference data
+CREATE POLICY "Public can read departments" ON departments FOR SELECT USING (true);
+CREATE POLICY "Public can read courses" ON courses FOR SELECT USING (true);
+CREATE POLICY "Public can read semesters" ON semesters FOR SELECT USING (true);
+CREATE POLICY "Public can read sections" ON sections FOR SELECT USING (true);
+CREATE POLICY "Public can read subjects" ON subjects FOR SELECT USING (true);
+CREATE POLICY "Public can read rooms" ON rooms FOR SELECT USING (true);
+CREATE POLICY "Public can read enrollments" ON enrollments FOR SELECT USING (true);
+CREATE POLICY "Public can read teacher_subjects" ON teacher_subjects FOR SELECT USING (is_active = true);
+CREATE POLICY "Public can read timetable" ON timetable FOR SELECT USING (true);
+CREATE POLICY "Authenticated can read attendance_sessions" ON attendance_sessions
+    FOR SELECT USING (
+        auth.uid() IS NOT NULL
+        AND (
+            auth_is_admin()
+            OR attendance_sessions.teacher_id IN (
+                SELECT id FROM teachers WHERE profile_id = auth.uid()
+            )
+            OR EXISTS (
+                SELECT 1 FROM enrollments e
+                WHERE e.student_id IN (SELECT id FROM students WHERE profile_id = auth.uid())
+                  AND e.section_id = attendance_sessions.section_id
+            )
         )
     );
+CREATE POLICY "Public can read announcements" ON announcements FOR SELECT USING (is_active = true);
+CREATE POLICY "Public can read events" ON events FOR SELECT USING (true);
+CREATE POLICY "Public can read news_sources" ON news_sources FOR SELECT USING (is_active = true);
+CREATE POLICY "Authenticated can read documents" ON documents FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Public can submit admissions" ON admissions FOR INSERT WITH CHECK (true);
+
+-- AI agent runs: admin-only access (metadata stays privileged)
+CREATE POLICY "Admins can view ai_agent_runs" ON ai_agent_runs
+    FOR SELECT USING (auth_is_admin());
+CREATE POLICY "Admins can manage ai_agent_runs" ON ai_agent_runs
+    FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage ai_agent_events" ON ai_agent_events
+    FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
 
 -- Audit log policies
 CREATE POLICY "Users can view own audit logs" ON audit_logs
     FOR SELECT USING (user_id = auth.uid());
 
 CREATE POLICY "Admins can view all audit logs" ON audit_logs
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
-        )
-    );
+    FOR SELECT USING (auth_is_admin());
+
+-- Admin manage policies for reference data
+CREATE POLICY "Admins can manage departments" ON departments FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage courses" ON courses FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage semesters" ON semesters FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage sections" ON sections FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage subjects" ON subjects FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage rooms" ON rooms FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage teacher_subjects" ON teacher_subjects FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage assessments" ON assessments FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage announcements" ON announcements FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage events" ON events FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage news_sources" ON news_sources FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage documents" ON documents FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can manage all notifications" ON notifications FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+CREATE POLICY "Admins can view all notifications" ON notifications FOR SELECT USING (auth_is_admin());
+CREATE POLICY "Admins can manage all preferences" ON notification_preferences FOR ALL USING (auth_is_admin()) WITH CHECK (auth_is_admin());
+
+-- Account activation: deny-by-default for browsers; service_role granted explicit access
+CREATE POLICY "Service role manages account activations"
+  ON public.account_activations
+  AS PERMISSIVE
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================
 -- FUNCTIONS FOR AUTOMATED PROFILE CREATION

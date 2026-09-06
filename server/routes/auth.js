@@ -261,7 +261,7 @@ router.post('/demo-login', async (req, res) => {
     // Account-enumeration hardening: whether the ID doesn't exist, belongs to a
     // different portal, or is inactive, return the SAME status + message so
     // responses never reveal which account (if any) an ID maps to.
-    if (effectiveRole !== role || profile.is_active === false) {
+    if (effectiveRole !== role || profile.status !== 'active') {
       return res.status(404).json({
         error: 'No account found for this ID. Check the ID and the selected portal, then try again.',
       });
