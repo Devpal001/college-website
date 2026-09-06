@@ -79,6 +79,26 @@ const DEMO_ADMIN_IDS = String(process.env.DEMO_ADMIN_IDS || '')
 
 const ALLOWED_ROLES = ['student', 'teacher', 'admin'];
 
+/**
+ * Returns an isolated Supabase client for flows that must issue a user
+ * session. Never authenticate on the shared `supabase` client imported from
+ * lib/db.js: supabase-js stores a successful sign-in in that client's auth
+ * state, which would replace the service-role token used by later requests.
+ *
+ * persistSession: false prevents disk/browser persistence; creating this
+ * client per request also prevents one user's session from crossing into a
+ * subsequent request.
+ */
+function createSessionAuthClient() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+    {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    }
+  );
+}
+
 // --------------------------------------------
 // Naive in-memory rate limiter (per IP).
 // Demo-grade: fine for a single dev server, not for a cluster.
@@ -159,13 +179,7 @@ async function resolvePortalIdentity(portalId, role) {
  * detected in policy for relation profiles" error.
  */
 async function issueSessionForUser(profile) {
-  const sessionClient = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
-    {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    }
-  );
+  const sessionClient = createSessionAuthClient();
 
   const { data: linkData, error: linkError } = await sessionClient.auth.admin.generateLink({
     type: 'magiclink',
@@ -376,14 +390,15 @@ router.post('/login', async (req, res) => {
       throw fail();
     }
 
-    // 3) Authenticate the password server-side. signInWithPassword against the
-    //    service-role client performs the same credential verification GoTrue
-    //    would for a browser client — without exposing the service key.
+    // 3) Authenticate with a fresh, request-scoped client. A successful
+    // sign-in saves the user session in the client, so this MUST NOT use the
+    // shared service-role `supabase` client used by database routes.
     const email = profile.email;
+    const sessionClient = createSessionAuthClient();
     const {
       data: authData,
       error: authError,
-    } = await supabase.auth.signInWithPassword({ email, password });
+    } = await sessionClient.auth.signInWithPassword({ email, password });
 
     if (authError || !authData?.session) {
       console.warn(
