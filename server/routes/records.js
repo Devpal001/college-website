@@ -3,7 +3,7 @@ import { supabase } from '../lib/db.js';
 import { authRequired, getTeacherForAuth } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
-import { isUuid, requireArray, requireOneOf, requireUuid } from '../lib/validate.js';
+import { isUuid, requireArray, requireUuid } from '../lib/validate.js';
 
 const router = Router();
 

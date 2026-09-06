@@ -417,6 +417,7 @@ Browser renders UI
 ### Render (backend)
 - `render.yaml` blueprint — Node, builds root + server deps.
 - `startCommand: node server/index.js`, `healthCheckPath: /health`, `autoDeploy: true`.
+- Service name: `college-website-api` (matches live hostname `college-website-api.onrender.com`).
 - Env (in Render dashboard, never committed): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
 - Production env: `DISABLE_DEMO_LOGIN=true`, `NODE_ENV=production`, `CORS_ORIGINS=https://college-website-psi-seven.vercel.app`.
 - Scheduler runs inside the same process.
@@ -465,6 +466,7 @@ git push origin main
 ### Deployment
 - Frontend: push `main` → Vercel auto-deploys; or `vercel --prod` (requires Vercel CLI + login).
 - Backend: push `main` → Render auto-deploys.
+- CI: GitHub Actions runs on push/PR to `main` (lint, build, auth regression tests). CI does **not** currently block production deployment unless branch protection / required checks are separately configured.
 
 ### Database changes
 - Edit `supabase/schema.sql`, apply to Supabase (dashboard or migration), commit migration file.

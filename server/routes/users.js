@@ -108,7 +108,7 @@ router.post('/admin', async (req, res) => {
       // 2) The handle_new_user() trigger created a profiles row from
       //    user_metadata. Reconcile the fields we control (guards
       //    against trigger drift or metadata loss).
-      const { data: profile, error: profileError } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert(
           { id: authUserId, email, full_name: fullName, role, is_active: true },

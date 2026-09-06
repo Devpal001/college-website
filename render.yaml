@@ -7,7 +7,7 @@
 # Docs: https://render.com/docs/blueprint-spec
 services:
   - type: web
-    name: mbscet-api
+    name: college-website-api
     runtime: node
     plan: free
     # Commands run from the REPO ROOT. The API is its own npm package
