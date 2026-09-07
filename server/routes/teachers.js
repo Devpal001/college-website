@@ -337,6 +337,44 @@ meRouter.post('/assessments', asyncHandler(async (req, res) => {
 }));
 
 // ============================================
+// PUT /api/teachers/me/profile
+// Update authenticated teacher's editable profile fields.
+// ============================================
+meRouter.put('/profile', asyncHandler(async (req, res) => {
+  const teacher = await getTeacherForAuth(req, res);
+  if (!teacher) return;
+
+  const updates = req.body || {};
+  const allowed = ['phone', 'designation', 'qualification', 'specialization', 'experience_years'];
+  const clean = {};
+  for (const key of allowed) {
+    if (updates[key] !== undefined) {
+      clean[key] = updates[key] === '' ? null : String(updates[key]).trim();
+    }
+  }
+
+  if (clean.experience_years !== undefined) {
+    const parsed = Number(clean.experience_years);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 120) {
+      return res.status(400).json({ error: 'experience_years must be a whole number between 0 and 120' });
+    }
+    clean.experience_years = parsed;
+  }
+
+  const { data, error } = await supabase
+    .from('teachers')
+    .update(clean)
+    .eq('id', teacher.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  if (!data) return res.status(404).json({ error: 'Teacher profile not found' });
+
+  res.json(data);
+}));
+
+// ============================================
 // Mount point: /api/teachers/me/*
 // (Registered before the legacy catch-all below so that
 // /me/subjects hits the dedicated route, not /:teacherId/subjects.)

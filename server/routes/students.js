@@ -348,6 +348,45 @@ router.get('/me', async (req, res) => {
   }
 });
 // ============================================
+// PUT /api/students/me/profile
+// Update authenticated student's editable profile fields.
+// ============================================
+router.put('/me/profile', async (req, res) => {
+  try {
+    if (req.profile.role !== 'student') {
+      return res.status(403).json({ error: 'Only students can update their profile' });
+    }
+
+    const student = await getStudentForAuth(req, res);
+    if (!student) return;
+
+    const updates = req.body || {};
+    const allowed = ['address', 'city', 'state', 'emergency_contact_name', 'emergency_contact_phone'];
+    const clean = {};
+    for (const key of allowed) {
+      if (updates[key] !== undefined) {
+        clean[key] = updates[key] === '' ? null : String(updates[key]).trim();
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('students')
+      .update(clean)
+      .eq('id', student.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Student profile not found' });
+
+    res.json(data);
+  } catch (error) {
+    console.error('Update student profile error:', error);
+    sendError(res, error);
+  }
+});
+
+// ============================================
 // Lookup by enrollment number
 // Only the student themself, or teacher/admin.
 // ============================================

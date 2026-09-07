@@ -163,8 +163,8 @@ router.get('/timetable/:sectionId', async (req, res) => {
           .eq('teacher_id', teacher.id)
           .eq('section_id', sectionId)
           .eq('is_active', true)
-          .maybeSingle();
-        authorized = Boolean(assignment);
+          .limit(1);
+        authorized = Array.isArray(assignment) && assignment.length > 0;
       }
     }
 
@@ -214,8 +214,8 @@ router.get('/sections/:sectionId/students', async (req, res) => {
           .eq('teacher_id', teacher.id)
           .eq('section_id', sectionId)
           .eq('is_active', true)
-          .maybeSingle();
-        authorized = Boolean(assignment);
+          .limit(1);
+        authorized = Array.isArray(assignment) && assignment.length > 0;
       }
     }
 
@@ -225,7 +225,7 @@ router.get('/sections/:sectionId/students', async (req, res) => {
 
     const { data, error } = await supabase
       .from('enrollments')
-      .select('*, students(*, profiles(*), departments(*))')
+      .select('*, students(*, profiles(*))')
       .eq('section_id', sectionId)
       .eq('status', 'active')
       .order('created_at', { ascending: true });

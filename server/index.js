@@ -32,7 +32,7 @@ const __dirname = path.dirname(__filename);
 // server/index.js is inside the server folder.
 const envPath = path.resolve(__dirname, '../.env');
 
-const envResult = dotenv.config({ path: envPath });
+const envResult = dotenv.config({ path: envPath, override: false });
 
 if (envResult.error) {
   console.warn(`⚠️ Could not load .env from: ${envPath}`);

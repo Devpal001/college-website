@@ -82,7 +82,7 @@ export default function PortalLogin() {
   const [mode, setMode] = useState('portal'); // 'portal' | 'email'
   // Portal sign-in is the primary flow in all environments. In production it
   // requires institutional ID + password (signInWithInstitutionalId). In
-  // development it falls back to the password-less demo (signInWithPortalId).
+  // development it falls back to the password-less demo (server-enforced).
   const IS_PROD = import.meta.env.PROD;
 
   // Legacy email/password fields (kept so the old flow still works).
@@ -292,36 +292,37 @@ export default function PortalLogin() {
                 </button>
               </form>
 
-              {/* Demo credentials hint (development helper — not the auth mechanism) */}
-              <div className="mt-6 rounded-soft bg-bg-soft border border-text-muted/20">
-                <button
-                  type="button"
-                  onClick={() => setShowDemoIds((s) => !s)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-text-muted"
-                  aria-expanded={showDemoIds}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Info size={15} className="text-primary" /> Demo accounts for this development portal
-                  </span>
-                  <ChevronDown size={16} className={`transition-transform ${showDemoIds ? 'rotate-180' : ''}`} />
-                </button>
-                {showDemoIds && (
-                  <div className="px-4 pb-4 grid sm:grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-soft bg-surface p-3">
-                      <p className="font-bold text-text-main">STU001</p>
-                      <p className="text-xs text-text-muted">Student · Demo Student</p>
+              {!IS_PROD && (
+                <div className="mt-6 rounded-soft bg-bg-soft border border-text-muted/20">
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoIds((s) => !s)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-text-muted"
+                    aria-expanded={showDemoIds}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Info size={15} className="text-primary" /> Demo accounts for this development portal
+                    </span>
+                    <ChevronDown size={16} className={`transition-transform ${showDemoIds ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showDemoIds && (
+                    <div className="px-4 pb-4 grid sm:grid-cols-3 gap-2 text-sm">
+                      <div className="rounded-soft bg-surface p-3">
+                        <p className="font-bold text-text-main">STU001</p>
+                        <p className="text-xs text-text-muted">Student · Demo Student</p>
+                      </div>
+                      <div className="rounded-soft bg-surface p-3">
+                        <p className="font-bold text-text-main">TCH001</p>
+                        <p className="text-xs text-text-muted">Teacher · Demo Teacher</p>
+                      </div>
+                      <div className="rounded-soft bg-surface p-3">
+                        <p className="font-bold text-text-main">ADMIN001</p>
+                        <p className="text-xs text-text-muted">Admin · Demo Administrator</p>
+                      </div>
                     </div>
-                    <div className="rounded-soft bg-surface p-3">
-                      <p className="font-bold text-text-main">TCH001</p>
-                      <p className="text-xs text-text-muted">Teacher · Demo Teacher</p>
-                    </div>
-                    <div className="rounded-soft bg-surface p-3">
-                      <p className="font-bold text-text-main">ADMIN001</p>
-                      <p className="text-xs text-text-muted">Admin · Demo Administrator</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-6 text-center text-sm">
                 <button

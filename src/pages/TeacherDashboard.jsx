@@ -129,8 +129,10 @@ function TeacherDashboard() {
   const [markClass, setMarkClass] = useState('');
   const [markStudents, setMarkStudents] = useState([]);
   const [markValues, setMarkValues] = useState({});
+  const [markErrors, setMarkErrors] = useState({});
   const [markLoading, setMarkLoading] = useState(false);
   const [markMessage, setMarkMessage] = useState('');
+  const [markExisting, setMarkExisting] = useState({}); // studentId -> marks record id
 
   const loadDashboard = useCallback(async () => {
     setError('');
@@ -188,6 +190,18 @@ function TeacherDashboard() {
         defaults[s.id] = 'present';
       });
       setAttStatuses(defaults);
+
+      // Load existing attendance for this class/date
+      const sessionRes = await api.get(`/teachers/me/sessions?sectionId=${sectionId}&subjectId=${selectedAttClass.subject_id}&date=${attDate}`);
+      const _session = Array.isArray(sessionRes) ? sessionRes[0] : null;
+      if (_session?.id) {
+        const records = await api.get(`/attendance?sessionId=${_session.id}`);
+        const statusMap = {};
+        (records || []).forEach((r) => {
+          statusMap[r.student_id] = r.status;
+        });
+        setAttStatuses((prevStatuses) => ({ ...prevStatuses, ...statusMap }));
+      }
     } catch (e) {
       setAttMessage({ type: 'error', text: e.message });
     } finally {
@@ -211,6 +225,7 @@ function TeacherDashboard() {
         records,
       });
       setAttMessage({ type: 'success', text: `Attendance saved for ${records.length} students.` });
+      await loadAttendanceStudents();
     } catch (e) {
       setAttMessage({ type: 'error', text: e.message });
     } finally {
@@ -229,10 +244,24 @@ function TeacherDashboard() {
       const students = await api.get(`/sections/${sectionId}/students`);
       setMarkStudents(students || []);
       const defaults = {};
+      const existing = {};
       (students || []).forEach((s) => {
         defaults[s.id] = '';
+        existing[s.id] = null;
       });
       setMarkValues(defaults);
+      setMarkExisting(existing);
+
+      // Load existing marks for this assessment
+      const records = await api.get(`/marks?assessmentId=${markAssessment}`);
+      const valuesMap = {};
+      const existingMap = {};
+      (records || []).forEach((r) => {
+        valuesMap[r.student_id] = r.marks_obtained;
+        existingMap[r.student_id] = r.id;
+      });
+      setMarkValues({ ...defaults, ...valuesMap });
+      setMarkExisting((prev) => ({ ...prev, ...existingMap }));
     } catch (e) {
       setMarkMessage({ type: 'error', text: e.message });
     } finally {
@@ -245,15 +274,27 @@ function TeacherDashboard() {
     setMarkLoading(true);
     setMarkMessage('');
     try {
-      const records = markStudents.map((s) => ({
-        studentId: s.id,
-        marksObtained: markValues[s.id] !== '' && markValues[s.id] != null
-          ? Number(markValues[s.id])
-          : 0,
-        remarks: null,
-      }));
-      await api.post('/marks', { assessmentId: markAssessment, records });
-      setMarkMessage({ type: 'success', text: `Marks saved for ${records.length} students.` });
+      const assessment = assessments.find((a) => a.id === markAssessment);
+      const max = assessment?.max_marks ?? 0;
+
+      for (const s of markStudents) {
+        const raw = markValues[s.id];
+        const marksObtained = raw !== '' && raw != null ? Number(raw) : 0;
+        if (marksObtained < 0 || marksObtained > max) {
+          throw new Error(`Marks for ${s.profiles?.full_name || s.enrollment_number} must be between 0 and ${max}`);
+        }
+        const existingId = markExisting[s.id];
+        if (existingId) {
+          await api.put(`/marks/${existingId}`, { marksObtained });
+        } else {
+          await api.post('/marks', {
+            assessmentId: markAssessment,
+            records: [{ studentId: s.id, marksObtained, remarks: null }],
+          });
+        }
+      }
+      setMarkMessage({ type: 'success', text: `Marks saved for ${markStudents.length} students.` });
+      await loadMarksStudents();
     } catch (e) {
       setMarkMessage({ type: 'error', text: e.message });
     } finally {
@@ -593,14 +634,36 @@ function TeacherDashboard() {
                     {attStudents.length} student{attStudents.length === 1 ? '' : 's'} ·{' '}
                     {selectedAttClass?.subjects?.name} · {attDate}
                   </p>
-                  <button
-                    onClick={submitAttendance}
-                    disabled={attLoading}
-                    className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50"
-                  >
-                    {attLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
-                    Save Attendance
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const allPresent = {};
+                        attStudents.forEach((s) => { allPresent[s.id] = 'present'; });
+                        setAttStatuses(allPresent);
+                      }}
+                      className="px-3 py-1.5 rounded-soft text-xs font-medium bg-success/10 text-success-dark hover:bg-success/20 transition"
+                    >
+                      Mark All Present
+                    </button>
+                    <button
+                      onClick={() => {
+                        const allAbsent = {};
+                        attStudents.forEach((s) => { allAbsent[s.id] = 'absent'; });
+                        setAttStatuses(allAbsent);
+                      }}
+                      className="px-3 py-1.5 rounded-soft text-xs font-medium bg-error/10 text-error-dark hover:bg-error/20 transition"
+                    >
+                      Mark All Absent
+                    </button>
+                    <button
+                      onClick={submitAttendance}
+                      disabled={attLoading}
+                      className="btn-primary flex items-center gap-2 px-4 py-2 rounded-soft text-sm font-medium disabled:opacity-50"
+                    >
+                      {attLoading ? <Check size={16} className="animate-spin" /> : <Check size={16} />}
+                      Save Attendance
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
                   <table className="w-full text-sm">
@@ -729,6 +792,8 @@ function TeacherDashboard() {
                       {markStudents.map((s) => {
                         const assessment = assessments.find((a) => a.id === markAssessment);
                         const max = assessment?.max_marks ?? 0;
+                        const raw = markValues[s.id];
+                        const error = markErrors[s.id];
                         return (
                           <tr key={s.id} className="border-b border-text-muted/15">
                             <td className="py-2 pr-4 text-text-main">
@@ -742,13 +807,35 @@ function TeacherDashboard() {
                                 min="0"
                                 max={max}
                                 step="0.01"
-                                value={markValues[s.id] ?? ''}
-                                onChange={(e) =>
-                                  setMarkValues((prev) => ({ ...prev, [s.id]: e.target.value }))
+                                value={raw ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setMarkValues((prevValues) => ({ ...prevValues, [s.id]: val }));
+                                if (val !== '' && val != null) {
+                                  const num = Number(val);
+                                  if (num < 0 || num > max) {
+                                    setMarkErrors((prevErrors) => ({ ...prevErrors, [s.id]: `Must be between 0 and ${max}` }));
+                                  } else {
+                                    setMarkErrors((prevErrors) => {
+                                      const next = { ...prevErrors };
+                                      delete next[s.id];
+                                      return next;
+                                    });
+                                  }
+                                } else {
+                                  setMarkErrors((prevErrors) => {
+                                    const next = { ...prevErrors };
+                                    delete next[s.id];
+                                    return next;
+                                  });
                                 }
+                              }}
                                 placeholder={`0 - ${max}`}
-                                className="w-32 px-3 py-1.5 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+                                className={`w-32 px-3 py-1.5 rounded-soft shadow-inset border outline-none transition ${
+                                  error ? 'border-error bg-error/5' : 'bg-bg-soft border-transparent focus:border-primary'
+                                }`}
                               />
+                              {error && <p className="text-error text-xs mt-1">{error}</p>}
                             </td>
                           </tr>
                         );

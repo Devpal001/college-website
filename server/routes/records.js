@@ -159,40 +159,21 @@ router.post('/attendance', async (req, res) => {
       sessionId = newSession.id;
     }
 
-// Upsert attendance rows.
-// NOTE: the live `attendance` table has a `BEFORE UPDATE` trigger
-// (update_attendance_updated_at) that references an `updated_at` column the
-// table does not have, so UPDATEs fail at the database level. We therefore
-// implement the upsert as delete-then-insert, which is identical in outcome
-// (UNIQUE(session_id, student_id)) and works on the current schema. Once
-// supabase/migrations/…_fix_attendance_updated_at.sql is applied, this can
-// be switched back to a plain .upsert().
-const upserts = await Promise.all(
-  records.map(async (r) => {
-    const status = r.status;
-    const row = {
+    const rows = records.map((r) => ({
       session_id: sessionId,
       student_id: r.studentId,
-      status,
+      status: r.status,
       marked_by: teacher.id,
       marked_at: new Date().toISOString(),
       notes: r.notes ? String(r.notes).slice(0, 500) : null,
-    };
-    const { data: existing } = await supabase
-      .from('attendance')
-      .select('id')
-      .eq('session_id', sessionId)
-      .eq('student_id', r.studentId)
-      .maybeSingle();
+    }));
 
-    if (existing) {
-      await supabase.from('attendance').delete().eq('id', existing.id);
-    }
-    const { data, error } = await supabase.from('attendance').insert(row).select().single();
-    if (error) throw error;
-    return data;
-  })
-);
+    const { data: upserts, error: upsertError } = await supabase
+      .from('attendance')
+      .upsert(rows, { onConflict: 'session_id,student_id' })
+      .select();
+
+    if (upsertError) throw upsertError;
 
     res.status(201).json({ sessionId, records: upserts });
 
@@ -235,6 +216,36 @@ const upserts = await Promise.all(
     });
   } catch (error) {
     console.error('Mark attendance error:', error);
+    sendError(res, error);
+  }
+});
+
+// ============================================
+// GET /api/attendance?sessionId=
+// List attendance records for a session (teacher/admin only).
+// ============================================
+router.get('/attendance', async (req, res) => {
+  try {
+    if (req.profile.role !== 'teacher' && req.profile.role !== 'admin' && req.profile.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const { sessionId } = req.query;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*, students(*, profiles(*))')
+      .eq('session_id', sessionId)
+      .order('marked_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    console.error('Get attendance error:', error);
     sendError(res, error);
   }
 });
@@ -502,6 +513,36 @@ router.put('/marks/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Update marks error:', error);
+    sendError(res, error);
+  }
+});
+
+// ============================================
+// GET /api/marks?assessmentId=
+// List marks for an assessment (teacher/admin only).
+// ============================================
+router.get('/marks', async (req, res) => {
+  try {
+    if (req.profile.role !== 'teacher' && req.profile.role !== 'admin' && req.profile.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    const { assessmentId } = req.query;
+    if (!assessmentId) {
+      return res.status(400).json({ error: 'assessmentId is required' });
+    }
+
+    const { data, error } = await supabase
+      .from('marks')
+      .select('*, students(*, profiles(*))')
+      .eq('assessment_id', assessmentId)
+      .order('entered_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    console.error('Get marks error:', error);
     sendError(res, error);
   }
 });
