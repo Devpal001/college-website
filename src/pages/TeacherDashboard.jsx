@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import TimetableGrid from '../components/TimetableGrid';
 import {
   GraduationCap,
   Calendar,
@@ -14,9 +15,8 @@ import {
   Plus,
   RefreshCw,
   Check,
+  AlertCircle,
 } from 'lucide-react';
-
-const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'];
 
@@ -69,8 +69,9 @@ function SectionTitle({ children }) {
   return <h2 className="text-lg font-bold text-text-main mb-3">{children}</h2>;
 }
 
-function SelectField({ label, value, onChange, options, placeholder, disabled }) {
+function SelectField({ label, value, onChange, options, placeholder, disabled, emptyText }) {
   const id = useId();
+  const noOptions = Array.isArray(options) && options.length === 0;
   return (
     <div>
       {label && (
@@ -78,20 +79,29 @@ function SelectField({ label, value, onChange, options, placeholder, disabled })
           {label}
         </label>
       )}
-      <select
-        id={id}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
-      >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {noOptions && emptyText ? (
+        <div
+          className="w-full px-4 py-2 rounded-soft bg-bg-soft border border-warning/40 text-sm text-warning-dark flex items-center gap-2"
+          role="note"
+        >
+          <AlertCircle size={14} className="shrink-0" /> {emptyText}
+        </div>
+      ) : (
+        <select
+          id={id}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className="w-full px-4 py-2 rounded-soft bg-bg-soft shadow-inset border border-transparent focus:border-primary outline-none transition"
+        >
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }
@@ -593,6 +603,7 @@ function TeacherDashboard() {
                 }}
                 options={classes}
                 placeholder="Select class"
+                emptyText="No classes assigned yet — contact administration to be assigned."
               />
               <div>
                 <label htmlFor="attendance-date" className="text-sm text-text-muted block mb-1">Date</label>
@@ -728,6 +739,7 @@ function TeacherDashboard() {
                   label: `${a.title} (${a.subjects?.name || 'Subject'} · ${a.type} · ${a.max_marks})`,
                 }))}
                 placeholder="Select assessment"
+                emptyText="No assessments found. Create one under Assessments first."
               />
               <SelectField
                 label="Class"
@@ -740,6 +752,7 @@ function TeacherDashboard() {
                 }}
                 options={classes}
                 placeholder="Select class"
+                emptyText="No classes assigned yet — contact administration to be assigned."
               />
               <div className="flex items-end">
                 <button
@@ -866,6 +879,7 @@ function TeacherDashboard() {
                   }}
                   options={subjectOptions}
                   placeholder="Select subject"
+                  emptyText="No subjects assigned to you yet — contact administration to be assigned."
                 />
                 <div>
                   <label htmlFor="assessment-title" className="text-sm text-text-muted block mb-1">Title</label>
@@ -1004,44 +1018,14 @@ function TeacherDashboard() {
         {tab === 'schedule' && (
           <div className="bg-surface rounded-soft-lg shadow-soft p-6">
             <SectionTitle>Weekly Schedule</SectionTitle>
-            {data.schedule?.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-text-muted border-b border-text-muted/25">
-                      <th className="py-2 pr-4">Day</th>
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Subject</th>
-                      <th className="py-2 pr-4">Section</th>
-                      <th className="py-2">Room</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {WEEK_DAYS.map((day) =>
-                      data.schedule
-                        .filter((t) => t.day_of_week === day)
-                        .map((t) => (
-                          <tr key={t.id} className="border-b border-text-muted/15">
-                            <td className="py-2 pr-4 capitalize text-text-main">{day}</td>
-                            <td className="py-2 pr-4 text-text-main">
-                              {String(t.start_time).slice(0, 5)} – {String(t.end_time).slice(0, 5)}
-                            </td>
-                            <td className="py-2 pr-4 text-text-main">{t.subjects?.name || '—'}</td>
-                            <td className="py-2 pr-4 text-text-muted">{t.sections?.name || '—'}</td>
-                            <td className="py-2 text-text-main">{t.rooms?.room_number || '—'}</td>
-                          </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
-                <p className="text-sm text-text-muted mb-2">No schedule published yet</p>
-                <p className="text-xs text-text-muted">Your teaching schedule will appear here once published.</p>
-              </div>
-            )}
+            <TimetableGrid
+              lectures={data.schedule || []}
+              loading={loading}
+              error={error}
+              onRetry={loadDashboard}
+              emptyTitle="No schedule published yet"
+              emptyText="Your teaching schedule will appear here once the administration publishes your lectures."
+            />
           </div>
         )}
       </div>

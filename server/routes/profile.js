@@ -3,7 +3,7 @@ import { supabase } from '../lib/db.js';
 import { authRequired } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
-import { requireString } from '../lib/validate.js';
+import { requireString, optionalString } from '../lib/validate.js';
 
 const router = Router();
 
@@ -105,11 +105,15 @@ router.put('/:id', async (req, res) => {
     if (updates.full_name !== undefined) {
       cleanUpdates.full_name = requireString(updates.full_name, 'full_name', { max: 200 });
     }
+    // phone / avatar_url are optional fields in the schema: an explicit null
+    // (or empty string) means "clear the field" and must NOT fail validation.
+    // Previously requireString() rejected null -> "avatar_url must be between
+    // 1 and 500 characters" on every profile save with an empty optional field.
     if (updates.phone !== undefined) {
-      cleanUpdates.phone = requireString(updates.phone, 'phone', { max: 20 });
+      cleanUpdates.phone = optionalString(updates.phone, 'phone', { max: 20 }) ?? null;
     }
     if (updates.avatar_url !== undefined) {
-      cleanUpdates.avatar_url = requireString(updates.avatar_url, 'avatar_url', { max: 500 });
+      cleanUpdates.avatar_url = optionalString(updates.avatar_url, 'avatar_url', { max: 500 }) ?? null;
     }
 
     const { data, error } = await supabase

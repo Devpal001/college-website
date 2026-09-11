@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import TimetableGrid from '../components/TimetableGrid';
 import {
   GraduationCap,
   Calendar,
@@ -12,8 +13,6 @@ import {
   User,
   BookOpen,
 } from 'lucide-react';
-
-const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 // Status chips use semantic tokens so they adapt to light/dark mode
 // and keep success/warning/error/info meaning consistent app-wide.
@@ -428,48 +427,14 @@ function StudentDashboard() {
         {tab === 'timetable' && (
           <div className="bg-surface rounded-soft-lg shadow-soft p-6">
             <SectionTitle>Weekly Timetable</SectionTitle>
-            {data.timetable?.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-text-muted border-b border-text-muted/25">
-                      <th className="py-2 pr-4">Day</th>
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Subject</th>
-                      <th className="py-2 pr-4">Teacher</th>
-                      <th className="py-2">Room</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {WEEK_DAYS.map((day) =>
-                      data.timetable
-                        .filter((t) => t.day_of_week === day)
-                        .map((t) => (
-                          <tr key={t.id} className="border-b border-text-muted/15">
-                            <td className="py-2 pr-4 capitalize text-text-main">{day}</td>
-                            <td className="py-2 pr-4 text-text-main">
-                              {String(t.start_time).slice(0, 5)} – {String(t.end_time).slice(0, 5)}
-                            </td>
-                            <td className="py-2 pr-4 text-text-main">
-                              {t.subjects?.name || '—'}
-                            </td>
-                            <td className="py-2 pr-4 text-text-muted">
-                              {t.teachers?.profiles?.full_name || t.teachers?.employee_id || '—'}
-                            </td>
-                            <td className="py-2 text-text-main">{t.rooms?.room_number || '—'}</td>
-                          </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
-                <p className="text-sm text-text-muted mb-2">No timetable published yet</p>
-                <p className="text-xs text-text-muted">Your weekly schedule will appear here once published.</p>
-              </div>
-            )}
+            <TimetableGrid
+              lectures={data.timetable || []}
+              loading={loading}
+              error={error}
+              onRetry={loadDashboard}
+              emptyTitle="No timetable published yet"
+              emptyText="Your weekly schedule will appear here once published."
+            />
           </div>
         )}
       </div>

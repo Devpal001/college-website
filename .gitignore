@@ -17,6 +17,14 @@ dist-ssr
 .env.local
 .env.production
 
+# QA / browser automation artifacts
+tmp-qa/
+tmp-qa-clean.txt
+qa-api.err
+qa-vite.err
+public/inject.html
+scripts/tmp-browser-qa*.mjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

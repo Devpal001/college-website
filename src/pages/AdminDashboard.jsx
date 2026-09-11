@@ -28,6 +28,7 @@ const MODULE_CARDS = [
   { key: 'users', title: 'User Management', description: 'Provision student, teacher and admin accounts; view the user directory.', icon: Users, to: '/admin/users', comingSoon: false },
   { key: 'teacher-management', title: 'Teacher Management', description: 'Manage faculty profiles and department assignments.', icon: UserCheck, to: null, comingSoon: true },
   { key: 'academic-records', title: 'Academic Records', description: 'Courses, semesters, sections and academic structure.', icon: BookOpen, to: null, comingSoon: true },
+  { key: 'timetable', title: 'Timetable Manager', description: 'Create, edit and delete weekly lectures: class, subject, teacher, room and time.', icon: CalendarRange, to: '/admin/timetable', comingSoon: false },
   { key: 'attendance', title: 'Attendance', description: 'Monitor and manage attendance across all classes.', icon: ClipboardCheck, to: null, comingSoon: true },
   { key: 'marks', title: 'Marks', description: 'Approve and manage assessment marks and results.', icon: Award, to: null, comingSoon: true },
   { key: 'news', title: 'News', description: 'Review, verify and publish news items and sources.', icon: Newspaper, to: '/admin/news', comingSoon: false },

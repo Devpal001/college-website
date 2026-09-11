@@ -112,7 +112,7 @@ meRouter.get('/dashboard', asyncHandler(async (req, res) => {
       .order('created_at', { ascending: false }),
     supabase
       .from('timetable')
-      .select('*, subjects(*), sections(*), rooms(*), semesters(*)')
+      .select('*, subjects(*), sections(*), rooms(*), semesters(*), teachers(*, profiles(full_name))')
       .eq('teacher_id', teacher.id)
       .order('day_of_week')
       .order('start_time'),
@@ -129,11 +129,20 @@ meRouter.get('/dashboard', asyncHandler(async (req, res) => {
       .eq('read', false),
   ]);
 
+  // Attendance sessions marked for this teacher (Sessions counter).
+  // Computed via the shared /me/sessions query semantics (teacher-scoped),
+  // so the dashboard counter always reflects the authoritative database.
+  const { count: sessionsCount } = await supabase
+    .from('attendance_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacher.id);
+
   res.json({
     profile: req.profile,
     teacher,
     subjects: subjects || [],
     schedule: schedule || [],
+    sessionsCount: sessionsCount ?? 0,
     notifications: notifications || [],
     unreadNotifications: unreadNotifications ?? 0,
   });

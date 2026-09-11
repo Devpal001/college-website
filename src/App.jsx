@@ -27,6 +27,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminNews = lazy(() => import('./pages/AdminNews'));
 const AdminAgent = lazy(() => import('./pages/AdminAgent'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminTimetable = lazy(() => import('./pages/AdminTimetable'));
 
 function App() {
   return (
@@ -98,6 +99,14 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={['student']}>
               <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/timetable"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+              <AdminTimetable />
             </ProtectedRoute>
           }
         />

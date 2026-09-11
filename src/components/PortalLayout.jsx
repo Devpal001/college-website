@@ -13,6 +13,7 @@ import {
   Users,
   LogOut,
   ShieldCheck,
+  Calendar,
 } from 'lucide-react';
 
 /**
@@ -41,6 +42,7 @@ const NAV_BY_ROLE = {
     { label: 'My Classes', to: '/teacher-dashboard?tab=subjects', icon: BookOpen },
     { label: 'Attendance', to: '/teacher-dashboard?tab=attendance', icon: ClipboardCheck },
     { label: 'Marks', to: '/teacher-dashboard?tab=marks', icon: Award },
+    { label: 'Schedule', to: '/teacher-dashboard?tab=schedule', icon: Calendar },
     { label: 'Notifications', to: '/notifications', icon: Bell },
     { label: 'Profile', to: '/profile', icon: User },
   ],

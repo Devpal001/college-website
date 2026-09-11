@@ -130,7 +130,7 @@ router.get('/me/dashboard', async (req, res) => {
     if (sectionId) {
       const { data: tt, error: ttError } = await supabase
         .from('timetable')
-        .select('*, subjects(*), teachers(*), rooms(*)')
+        .select('*, subjects(*), teachers(*, profiles(full_name)), rooms(*), semesters(*)')
         .eq('section_id', sectionId)
         .order('day_of_week')
         .order('start_time');
@@ -304,7 +304,7 @@ router.get('/me/timetable', async (req, res) => {
 
     const { data, error } = await supabase
       .from('timetable')
-      .select('*, subjects(*), teachers(*), rooms(*)')
+      .select('*, subjects(*), teachers(*, profiles(full_name)), rooms(*), semesters(*)')
       .eq('section_id', enrollment.section_id)
       .order('day_of_week')
       .order('start_time');
