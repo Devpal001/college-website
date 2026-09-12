@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, ZoomIn, Filter } from 'lucide-react';
 import { galleryCategories, getImagesByCategory } from '../data/gallery';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 export default function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedImage, setSelectedImage] = useState(null);
+  const [headerRef, headerVisible] = useScrollAnimation({ once: true });
+  const [filtersRef, filtersVisible] = useScrollAnimation({ once: true });
+  const [gridRef, gridVisible] = useScrollAnimation({ once: true });
 
   const filteredImages = getImagesByCategory(selectedCategory);
 
@@ -29,7 +33,7 @@ export default function Gallery() {
   return (
     <div className="min-h-screen bg-bg-soft">
       {/* Header */}
-      <section className="container-lg py-24 text-center">
+      <section ref={headerRef} className={`container-lg py-24 text-center scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
         <h1 className="text-4xl md:text-5xl font-bold text-text-main mb-4">Photo Gallery</h1>
         <p className="text-text-muted text-lg max-w-2xl mx-auto">
           Explore life at MBSCET through our collection of campus events, facilities, and celebrations.
@@ -37,55 +41,61 @@ export default function Gallery() {
       </section>
 
       {/* Category Filter */}
-      <section className="container-lg mb-8">
+      <section ref={filtersRef} className="container-lg mb-8">
         <div className="flex flex-wrap justify-center gap-3">
-          {galleryCategories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                selectedCategory === category.id
-                  ? 'bg-primary text-white shadow-soft'
-                  : 'bg-surface text-text-main hover:bg-bg-soft border border-text-muted/20'
-              }`}
-            >
-              {category.name}
-            </button>
-          ))}
+          {galleryCategories.map((category, index) => {
+            const staggerClass = `stagger-${(index % 6) + 1}`;
+            return (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all scroll-animate ${staggerClass} ${filtersVisible ? 'is-visible' : ''} ${
+                  selectedCategory === category.id
+                    ? 'bg-primary text-white shadow-soft'
+                    : 'bg-surface text-text-main hover:bg-bg-soft border border-text-muted/20'
+                }`}
+              >
+                {category.name}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       {/* Gallery Grid */}
-      <section className="container-lg pb-16">
+      <section ref={gridRef} className="container-lg pb-16">
         {filteredImages.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredImages.map((image) => (
-              <button
-                key={image.id}
-                type="button"
-                onClick={() => handleImageClick(image)}
-                aria-label={`View ${image.title}`}
-                className="group relative aspect-square overflow-hidden rounded-soft-lg cursor-pointer w-full text-left"
-              >
-                {/* Placeholder for actual image */}
-                <div className="w-full h-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                  <span className="text-text-muted text-sm font-medium">
-                    {image.title}
-                  </span>
-                </div>
+            {filteredImages.map((image, index) => {
+              const staggerClass = `stagger-${(index % 6) + 1}`;
+              return (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => handleImageClick(image)}
+                  aria-label={`View ${image.title}`}
+                  className={`group relative aspect-square overflow-hidden rounded-soft-lg cursor-pointer w-full text-left scroll-animate ${staggerClass} ${gridVisible ? 'is-visible' : ''}`}
+                >
+                  {/* Placeholder for actual image */}
+                  <div className="w-full h-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                    <span className="text-text-muted text-sm font-medium">
+                      {image.title}
+                    </span>
+                  </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <ZoomIn className="text-white" size={32} />
-                </div>
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <ZoomIn className="text-white" size={32} />
+                  </div>
 
-                {/* Image info overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <h3 className="text-white font-medium text-sm">{image.title}</h3>
-                  <p className="text-white/70 text-xs mt-1">{image.description}</p>
-                </div>
-              </button>
-            ))}
+                  {/* Image info overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h3 className="text-white font-medium text-sm">{image.title}</h3>
+                    <p className="text-white/70 text-xs mt-1">{image.description}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">

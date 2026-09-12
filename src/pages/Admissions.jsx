@@ -2,9 +2,14 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 function Admissions() {
   const [showEligibility, setShowEligibility] = useState(false);
+  const [headerRef, headerVisible] = useScrollAnimation({ once: true });
+  const [stepsRef, stepsVisible] = useScrollAnimation({ once: true });
+  const [formRef, formVisible] = useScrollAnimation({ once: true });
+  const [ctaRef, ctaVisible] = useScrollAnimation({ once: true });
 
   const [form, setForm] = useState({
     full_name: '',
@@ -41,7 +46,7 @@ function Admissions() {
   return (
     <div>
       {/* Header */}
-      <section className="px-6 py-20 text-center bg-bg-soft fade-in">
+      <section ref={headerRef} className={`px-6 py-20 text-center bg-bg-soft scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
         <h1 className="text-4xl font-bold text-text-main">Admissions</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto">
           Start your journey with us. Here's everything you need to know to apply.
@@ -49,27 +54,27 @@ function Admissions() {
       </section>
 
       {/* Steps */}
-      <section className="px-6 py-16 max-w-5xl mx-auto">
-        <h2 className="text-2xl font-bold text-text-main text-center mb-10">
+      <section ref={stepsRef} className="px-6 py-16 max-w-5xl mx-auto">
+        <h2 className={`text-2xl font-bold text-text-main text-center mb-10 scroll-animate ${stepsVisible ? 'is-visible' : ''}`}>
           How to Apply
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
+          <div className={`bg-surface rounded-soft-lg shadow-soft p-6 text-center scroll-animate stagger-1 ${stepsVisible ? 'is-visible' : ''}`}>
             <div className="text-primary text-2xl font-bold mb-2">1</div>
             <h4 className="font-semibold text-text-main mb-2">Choose a Program</h4>
             <p className="text-text-muted text-sm leading-relaxed">Browse our 50+ programs and pick the one that fits you.</p>
           </div>
-          <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
+          <div className={`bg-surface rounded-soft-lg shadow-soft p-6 text-center scroll-animate stagger-2 ${stepsVisible ? 'is-visible' : ''}`}>
             <div className="text-primary text-2xl font-bold mb-2">2</div>
             <h4 className="font-semibold text-text-main mb-2">Submit Application</h4>
             <p className="text-text-muted text-sm leading-relaxed">Fill out the online form with your academic details.</p>
           </div>
-          <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
+          <div className={`bg-surface rounded-soft-lg shadow-soft p-6 text-center scroll-animate stagger-3 ${stepsVisible ? 'is-visible' : ''}`}>
             <div className="text-primary text-2xl font-bold mb-2">3</div>
             <h4 className="font-semibold text-text-main mb-2">Entrance Review</h4>
             <p className="text-text-muted text-sm leading-relaxed">Our team reviews your application and test scores.</p>
           </div>
-          <div className="bg-surface rounded-soft-lg shadow-soft p-6 text-center">
+          <div className={`bg-surface rounded-soft-lg shadow-soft p-6 text-center scroll-animate stagger-4 ${stepsVisible ? 'is-visible' : ''}`}>
             <div className="text-primary text-2xl font-bold mb-2">4</div>
             <h4 className="font-semibold text-text-main mb-2">Get Admitted</h4>
             <p className="text-text-muted text-sm">Receive your offer letter and confirm your seat.</p>
@@ -78,7 +83,7 @@ function Admissions() {
       </section>
 
       {/* Application Form */}
-      <section className="px-6 py-16 bg-bg-soft">
+      <section ref={formRef} className={`px-6 py-16 bg-bg-soft scroll-animate ${formVisible ? 'is-visible' : ''}`}>
         <div className="max-w-2xl mx-auto bg-surface rounded-soft-lg shadow-soft p-8">
           <h2 className="text-2xl font-bold text-text-main mb-6 text-center">Apply Now</h2>
 
@@ -193,7 +198,7 @@ function Admissions() {
       </section>
 
       {/* CTA */}
-      <section className="px-6 py-16 text-center">
+      <section ref={ctaRef} className={`px-6 py-16 text-center scroll-animate ${ctaVisible ? 'is-visible' : ''}`}>
         <h2 className="text-2xl font-bold text-text-main">Have questions?</h2>
         <p className="text-text-muted mt-3 mx-auto">Our admissions team is here to help.</p>
         <Link

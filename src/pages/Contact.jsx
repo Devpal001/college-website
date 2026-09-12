@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 function Contact() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('');
+  const [headerRef, headerVisible] = useScrollAnimation({ once: true });
+  const [formRef, formVisible] = useScrollAnimation({ once: true });
+  const [infoRef, infoVisible] = useScrollAnimation({ once: true });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,12 +31,18 @@ function Contact() {
 
   return (
     <div>
-      {/* ...your Header section stays unchanged... */}
+      {/* Header */}
+      <section ref={headerRef} className={`px-6 py-20 text-center bg-bg-soft scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
+        <h1 className="text-4xl font-bold text-text-main">Contact Us</h1>
+        <p className="text-text-muted mt-4 max-w-2xl mx-auto">
+          Have a question or need assistance? We're here to help.
+        </p>
+      </section>
 
       <section className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
-        
+
         {/* Form */}
-        <div className="bg-surface rounded-soft-lg shadow-soft p-8">
+        <div ref={formRef} className={`bg-surface rounded-soft-lg shadow-soft p-8 scroll-animate stagger-1 ${formVisible ? 'is-visible' : ''}`}>
           <h3 className="text-xl font-bold text-text-main mb-6">Send a Message</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -89,7 +99,16 @@ function Contact() {
           </form>
         </div>
 
-        {/* ...your Info column stays unchanged... */}
+        {/* Info */}
+        <div ref={infoRef} className={`bg-surface rounded-soft-lg shadow-soft p-8 scroll-animate stagger-2 ${infoVisible ? 'is-visible' : ''}`}>
+          <h3 className="text-xl font-bold text-text-main mb-6">Get in Touch</h3>
+          <div className="space-y-4 text-text-muted text-sm">
+            <p><span className="font-medium text-text-main">Address:</span> MBSCET Campus, Jammu, J&K, India</p>
+            <p><span className="font-medium text-text-main">Phone:</span> +91-XXX-XXXX-XXX</p>
+            <p><span className="font-medium text-text-main">Email:</span> info@mbscet.edu.in</p>
+            <p><span className="font-medium text-text-main">Office Hours:</span> Mon–Sat, 9:00 AM – 5:00 PM</p>
+          </div>
+        </div>
 
       </section>
     </div>
