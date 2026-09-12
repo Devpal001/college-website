@@ -485,5 +485,235 @@ router.get('/admin', async (req, res) => {
   }
 });
 
+// ============================================
+// TEACHER ACADEMIC ASSIGNMENTS (teacher_subjects)
+// ------------------------------------------------------------
+// The timetable (`timetable.teacher_id`) records WHERE a teacher teaches;
+// `teacher_subjects` records WHAT a teacher is responsible for. The teacher
+// portal (My Classes / Mark Attendance / Assessments / Enter Marks) is keyed
+// off teacher_subjects — see BRAIN.md "Teacher Portal".
+//
+// GET    /api/users/admin/teacher-subjects?teacherId=<uuid>  — list assignments
+// POST   /api/users/admin/teacher-subjects                   — assign
+// DELETE /api/users/admin/teacher-subjects/:id  — deactivate (soft delete)
+//
+// SECURITY: router-level guard above (authRequired + admin/super_admin).
+// Schema: teacher_subjects UNIQUE(teacher_id, subject_id, semester_id, section_id),
+// section_id nullable (ON DELETE SET NULL). Duplicate handling:
+//   - same combo already ACTIVE            -> 409 CONFLICT
+//   - same combo exists but INACTIVE       -> re-activated (200)
+// ============================================
+
+// GET /api/users/admin/teacher-subjects?teacherId=<uuid>&includeInactive=true
+// Lists a teacher's subject assignments with subject/semester/section labels.
+router.get('/admin/teacher-subjects', async (req, res) => {
+  try {
+    const teacherId = requireUuid(req.query.teacherId, 'teacherId');
+    const includeInactive = req.query.includeInactive === 'true';
+
+    // Verify teacher exists (FK target must be a real teachers row).
+    const { data: teacher, error: teacherErr } = await supabase
+      .from('teachers')
+      .select('id, employee_id')
+      .eq('id', teacherId)
+      .maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher) throw HttpError.badRequest('Teacher not found', 'TEACHER_NOT_FOUND');
+
+    let query = supabase
+      .from('teacher_subjects')
+      .select('*, subjects(*), semesters(*), sections(*)')
+      .eq('teacher_id', teacherId)
+      .order('created_at', { ascending: false });
+
+    if (!includeInactive) query = query.eq('is_active', true);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return res.json({ data: data || [], teacher });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/users/admin/teacher-subjects
+// Assign a subject + semester + section to a teacher.
+// Body: { teacherId, subjectId, semesterId, sectionId }
+// ============================================
+router.post('/admin/teacher-subjects', async (req, res) => {
+  try {
+    const teacherId = requireUuid(req.body?.teacherId, 'teacherId');
+    const subjectId = requireUuid(req.body?.subjectId, 'subjectId');
+    const semesterId = requireUuid(req.body?.semesterId, 'semesterId');
+    // section_id is nullable in the schema, but the teacher portal (attendance,
+    // marks, assessments) is section-based — provisioning always requires it.
+    const sectionId = requireUuid(req.body?.sectionId, 'sectionId');
+
+    // Verify teacher exists
+    const { data: teacher, error: teacherErr } = await supabase
+      .from('teachers')
+      .select('id')
+      .eq('id', teacherId)
+      .maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher) throw HttpError.badRequest('Teacher not found', 'TEACHER_NOT_FOUND');
+
+    // Verify subject exists
+    const { data: subject, error: subjectErr } = await supabase
+      .from('subjects')
+      .select('id')
+      .eq('id', subjectId)
+      .maybeSingle();
+    if (subjectErr) throw subjectErr;
+    if (!subject) throw HttpError.badRequest('Subject not found', 'SUBJECT_NOT_FOUND');
+
+    // Verify semester exists
+    const { data: semester, error: semesterErr } = await supabase
+      .from('semesters')
+      .select('id')
+      .eq('id', semesterId)
+      .maybeSingle();
+    if (semesterErr) throw semesterErr;
+    if (!semester) throw HttpError.badRequest('Semester not found', 'SEMESTER_NOT_FOUND');
+
+    // Verify section exists and belongs to the selected semester
+    if (sectionId) {
+      const { data: section, error: sectionErr } = await supabase
+        .from('sections')
+        .select('id, semester_id')
+        .eq('id', sectionId)
+        .maybeSingle();
+      if (sectionErr) throw sectionErr;
+      if (!section) throw HttpError.badRequest('Section not found', 'SECTION_NOT_FOUND');
+      if (section.semester_id !== semesterId) {
+        throw HttpError.badRequest(
+          'Section does not belong to the selected semester',
+          'SECTION_SEMESTER_MISMATCH'
+        );
+      }
+    }
+
+    // Duplicate handling against UNIQUE(teacher_id, subject_id, semester_id, section_id):
+    // the constraint spans inactive rows too, so an inactive duplicate must be
+    // re-activated rather than re-inserted (the INSERT would otherwise always fail).
+    const { data: existing } = await supabase
+      .from('teacher_subjects')
+      .select('id, is_active')
+      .eq('teacher_id', teacherId)
+      .eq('subject_id', subjectId)
+      .eq('semester_id', semesterId)
+      .eq('section_id', sectionId)
+      .maybeSingle();
+
+    if (existing?.is_active) {
+      throw HttpError.conflict(
+        'This teacher already has an active assignment for this subject/semester/section',
+        'DUPLICATE_ASSIGNMENT'
+      );
+    }
+
+    let created;
+    let reactivated = false;
+
+    if (existing) {
+      // Reactivate the previously deactivated assignment.
+      const { data: updated, error: updateErr } = await supabase
+        .from('teacher_subjects')
+        .update({ is_active: true, assigned_date: new Date().toISOString().slice(0, 10) })
+        .eq('id', existing.id)
+        .select('*, subjects(*), semesters(*), sections(*)')
+        .single();
+      if (updateErr) throw updateErr;
+      created = updated;
+      reactivated = true;
+    } else {
+      // Create the assignment
+      const { data: inserted, error: insertErr } = await supabase
+        .from('teacher_subjects')
+        .insert({
+          teacher_id: teacherId,
+          subject_id: subjectId,
+          semester_id: semesterId,
+          section_id: sectionId,
+          is_active: true,
+        })
+        .select('*, subjects(*), semesters(*), sections(*)')
+        .single();
+
+      if (insertErr) {
+        if (insertErr.code === '23505') {
+          throw HttpError.conflict(
+            'This teacher already has an active assignment for this subject/semester/section',
+            'DUPLICATE_ASSIGNMENT'
+          );
+        }
+        throw insertErr;
+      }
+      created = inserted;
+    }
+
+    // Audit log
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: req.profile.id,
+        action: reactivated ? 'teacher_subject.reassigned' : 'teacher_subject.assigned',
+        table_name: 'teacher_subjects',
+        record_id: created.id,
+        new_values: { teacher_id: teacherId, subject_id: subjectId, semester_id: semesterId, section_id: sectionId },
+        ip_address: req.ip,
+        user_agent: req.get('user-agent')?.slice(0, 300) || null,
+      });
+    } catch (auditErr) {
+      console.error('[users] audit log write failed', auditErr.message);
+    }
+
+    return res.status(reactivated ? 200 : 201).json({ data: created, reactivated });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// ============================================
+// DELETE /api/users/admin/teacher-subjects/:id
+// Deactivate a teacher subject assignment (soft delete — the row is kept
+// so the UNIQUE constraint history and reactivation flow stay consistent).
+// Returns a clean 404 when the assignment does not exist.
+// ============================================
+router.delete('/admin/teacher-subjects/:id', async (req, res) => {
+  try {
+    const assignmentId = requireUuid(req.params.id, 'id');
+
+    const { data: updated, error } = await supabase
+      .from('teacher_subjects')
+      .update({ is_active: false })
+      .eq('id', assignmentId)
+      .select('*, subjects(*), semesters(*), sections(*)')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updated) throw HttpError.notFound('Assignment not found');
+
+    // Audit log
+    try {
+      await supabase.from('audit_logs').insert({
+        user_id: req.profile.id,
+        action: 'teacher_subject.deactivated',
+        table_name: 'teacher_subjects',
+        record_id: updated.id,
+        new_values: { is_active: false },
+        ip_address: req.ip,
+        user_agent: req.get('user-agent')?.slice(0, 300) || null,
+      });
+    } catch (auditErr) {
+      console.error('[users] audit log write failed', auditErr.message);
+    }
+
+    return res.json({ data: updated });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 export default router;
 

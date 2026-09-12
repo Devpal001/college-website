@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { UserPlus, RefreshCw } from 'lucide-react';
+import { UserPlus, RefreshCw, GraduationCap } from 'lucide-react';
 import { api } from '../lib/api';
 import Badge from '../components/Badge';
 import PortalLayout from '../components/PortalLayout';
@@ -35,6 +35,254 @@ function ErrorNote({ message }) {
 function OkNote({ message }) {
   if (!message) return null;
   return <div className="bg-success/10 text-success-dark rounded-soft p-3 text-sm">{message}</div>;
+}
+
+// ============================================
+// Teacher subject assignment panel
+// ------------------------------------------------------------
+// teacher_subjects is what drives the teacher portal (My Classes,
+// Mark Attendance, Assessments, Enter Marks). Timetable assignments
+// are intentionally separate (they record WHERE, not WHAT).
+// Data sources reuse existing endpoints:
+//   teachers : GET /api/timetable/meta/teachers  (admin-guarded)
+//   sections : GET /api/sections                 (embeds semesters + courses)
+//   subjects : GET /api/subjects
+// ============================================
+function TeacherAssignments({ flash }) {
+  const [teachers, setTeachers] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [refLoading, setRefLoading] = useState(true);
+  const [refError, setRefError] = useState(null);
+
+  const [teacherId, setTeacherId] = useState('');
+  const [subjectId, setSubjectId] = useState('');
+  const [sectionId, setSectionId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  const [assignments, setAssignments] = useState([]);
+  const [asgLoading, setAsgLoading] = useState(false);
+  const [asgError, setAsgError] = useState(null);
+
+  const loadRefs = useCallback(async () => {
+    setRefLoading(true);
+    setRefError(null);
+    try {
+      const [t, s, sub] = await Promise.all([
+        api.get('/api/timetable/meta/teachers'),
+        api.get('/api/sections'),
+        api.get('/api/subjects'),
+      ]);
+      setTeachers(t || []);
+      setSections(s || []);
+      setSubjects(sub || []);
+    } catch (err) {
+      setRefError(err.message || 'Failed to load reference data');
+    } finally {
+      setRefLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRefs();
+  }, [loadRefs]);
+
+  const loadAssignments = useCallback(async (tid, includeInactive = true) => {
+    if (!tid) {
+      setAssignments([]);
+      return;
+    }
+    setAsgLoading(true);
+    setAsgError(null);
+    try {
+      const res = await api.get(
+        `/api/users/admin/teacher-subjects?teacherId=${tid}&includeInactive=${includeInactive}`
+      );
+      setAssignments(res?.data || []);
+    } catch (err) {
+      setAsgError(err.message || 'Failed to load assignments');
+    } finally {
+      setAsgLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setSubjectId('');
+    setSectionId('');
+    setFormError(null);
+    loadAssignments(teacherId);
+  }, [teacherId, loadAssignments]);
+
+  const selectedSection = sections.find((s) => s.id === sectionId) || null;
+  // Derived from the section's real semester_id FK — never a manual pick,
+  // so the admin can never submit a section/semester mismatch.
+  const derivedSemesterId = selectedSection?.semesters?.id || '';
+  const semesterLabel = selectedSection?.semesters
+    ? `${selectedSection.semesters.name}${
+        selectedSection.semesters.courses ? ` · ${selectedSection.semesters.courses.name}` : ''
+      }`
+    : '';
+
+  const assign = async (e) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!teacherId) return setFormError('Select a teacher first.');
+    if (!subjectId) return setFormError('Select a subject.');
+    if (!sectionId) return setFormError('Select a class/section.');
+    if (!derivedSemesterId) return setFormError('Selected section has no semester.');
+    setBusy(true);
+    try {
+      const res = await api.post('/api/users/admin/teacher-subjects', {
+        teacherId,
+        subjectId,
+        semesterId: derivedSemesterId, // derived from the section's real FK
+        sectionId,
+      });
+      flash(res?.reactivated ? 'Assignment re-activated' : 'Subject assigned');
+      setSubjectId('');
+      setSectionId('');
+      await loadAssignments(teacherId);
+    } catch (err) {
+      // Backend returns precise messages (409 duplicate, 400 relationship checks).
+      setFormError(err.message || 'Failed to assign subject');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deactivate = async (assignmentId) => {
+    setFormError(null);
+    setBusy(true);
+    try {
+      await api.delete(`/api/users/admin/teacher-subjects/${assignmentId}`);
+      flash('Assignment deactivated');
+      await loadAssignments(teacherId);
+    } catch (err) {
+      setFormError(err.message || 'Failed to deactivate assignment');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-surface rounded-soft-lg shadow-soft p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <GraduationCap size={18} className="text-primary" />
+        <h2 className="text-lg font-bold text-text-main">Teacher subject assignments</h2>
+      </div>
+      <p className="text-xs text-text-muted mb-4">
+        Subject assignments drive the teacher portal (My Classes, Mark Attendance,
+        Assessments, Enter Marks). Timetable lectures are managed separately in the
+        Timetable Manager.
+      </p>
+
+      {refLoading ? (
+        <p className="text-sm text-text-muted">Loading teachers and courses…</p>
+      ) : refError ? (
+        <ErrorNote message={refError} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Field label="Teacher">
+              <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={inputCls}>
+                <option value="">Select teacher</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.profiles?.full_name || t.employee_id}
+                    {t.employee_id ? ` (${t.employee_id})` : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Subject">
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className={inputCls}
+                disabled={!teacherId}
+              >
+                <option value="">Select subject</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Class / Section">
+              <select
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                className={inputCls}
+                disabled={!teacherId}
+              >
+                <option value="">Select class</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {semesterLabel && (
+            <p className="text-xs text-text-muted mt-2">Semester: {semesterLabel} (from selected class)</p>
+          )}
+
+          <div className="mt-4">
+            <ErrorNote message={formError} />
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={assign}
+                disabled={busy || !teacherId || !subjectId || !sectionId}
+                className="bg-primary text-white px-5 py-2 rounded-soft shadow-soft hover:bg-primary-dark disabled:opacity-60 transition text-sm font-medium"
+              >
+                {busy ? 'Saving…' : 'Assign subject'}
+              </button>
+            </div>
+          </div>
+          {/* Existing assignments */}
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-text-main mb-2">
+              Current assignments{teacherId ? '' : ' (select a teacher)'}
+            </h3>
+            {!teacherId ? null : asgLoading ? (
+              <p className="text-sm text-text-muted">Loading assignments…</p>
+            ) : asgError ? (
+              <ErrorNote message={asgError} />
+            ) : assignments.length === 0 ? (
+              <p className="text-sm text-text-muted">No assignments for this teacher yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {assignments.map((a) => (
+                  <li
+                    key={a.id}
+                    className="bg-navbar shadow-soft rounded-soft p-3 flex flex-wrap items-center gap-2"
+                  >
+                    <span className="text-sm text-text-main font-medium mr-auto">
+                      {a.subjects?.name || 'Unknown subject'} — {a.semesters?.name || '—'}
+                      {a.sections?.name ? ` — ${a.sections.name}` : ''}
+                    </span>
+                    <Badge tone={a.is_active ? 'green' : 'gray'}>
+                      {a.is_active ? 'active' : 'inactive'}
+                    </Badge>
+                    {a.is_active && (
+                      <button
+                        type="button"
+                        onClick={() => deactivate(a.id)}
+                        disabled={busy}
+                        className="text-xs px-3 py-1.5 rounded-soft bg-error/10 text-error-dark hover:bg-error/20 disabled:opacity-50 transition"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function AdminUsers() {
@@ -302,9 +550,10 @@ export default function AdminUsers() {
           )}
         </div>
 
+        {/* Teacher subject assignments (teacher_subjects provisioning) */}
+        <TeacherAssignments flash={flash} />
+
       </div>
     </PortalLayout>
   );
 }
-
-
