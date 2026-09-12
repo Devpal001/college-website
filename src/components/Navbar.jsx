@@ -31,8 +31,19 @@ function Navbar() {
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const menuButtonRef = useRef(null);
   const menuRef = useRef(null);
+
+  // Detect scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 100);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Theme switching: toggle the `dark` class on <html> and persist the
   // choice. All palette values live in src/index.css (:root + html.dark);
@@ -162,11 +173,13 @@ function Navbar() {
   }, [menuOpen]);
 
   return (
-    <div className="relative w-full pb-6">
+    <div className={`relative w-full transition-all duration-300 ${isScrolled ? 'pb-2' : 'pb-6'}`}>
       {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger (mobile) right */}
-      <div className="w-full flex items-center justify-between px-6 md:px-8 pt-6">
-        <div className="text-sm font-bold text-text-main leading-tight">
-          MBSCET <span className="text-primary block text-xs font-medium">Jammu</span>
+      <div className={`w-full flex items-center justify-between px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'pt-3' : 'pt-6'}`}>
+        <div className={`font-bold text-text-main leading-tight transition-all duration-300 ${isScrolled ? 'text-xs' : 'text-sm'}`}>
+          <span className={`block transition-all duration-300 ${isScrolled ? 'hidden' : 'block'}`}>
+            MBSCET <span className="text-primary block text-xs font-medium">Jammu</span>
+          </span>
         </div>
 
         {/* Desktop controls */}
@@ -237,13 +250,17 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Logo, centered */}
-      <div className="flex justify-center -mt-2 md:-mt-4 mb-2 md:mb-4">
-        <img src={logo} alt="MBSCET Jammu Logo" className="h-20 w-20 md:h-30 md:w-30 object-contain" />
+      {/* Logo, centered or left based on scroll */}
+      <div className={`transition-all duration-300 flex ${isScrolled ? 'justify-start px-6 md:px-8 -mt-2' : 'justify-center -mt-2 md:-mt-4'} mb-2 md:mb-4`}>
+        <img 
+          src={logo} 
+          alt="MBSCET Jammu Logo" 
+          className={`object-contain transition-all duration-300 ${isScrolled ? 'h-12 w-12' : 'h-20 w-20 md:h-30 md:w-30'}`} 
+        />
       </div>
 
       {/* Desktop nav pill */}
-      <div className="hidden md:flex justify-center">
+      <div className={`hidden md:flex justify-center transition-all duration-300 ${isScrolled ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
         <nav className="bg-navbar shadow-soft rounded-full px-8 py-3">
           <ul className="flex gap-8 text-text-main font-medium text-sm">
             {navLinks.map((link) => {
@@ -253,6 +270,29 @@ function Navbar() {
                   key={link.href}
                   className={`nav-link transition ${
                     active ? 'text-primary font-semibold bg-bg-soft/50 rounded-soft px-3 py-1' : 'hover:text-primary'
+                  }`}
+                >
+                  <Link to={link.href} aria-current={active ? 'page' : undefined}>
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </div>
+
+      {/* Compact nav pill on scroll */}
+      <div className={`hidden md:flex justify-start px-8 transition-all duration-300 ${isScrolled ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+        <nav className="bg-navbar shadow-soft rounded-full px-6 py-2">
+          <ul className="flex gap-6 text-text-main font-medium text-xs">
+            {navLinks.slice(0, 4).map((link) => {
+              const active = location.pathname === link.href;
+              return (
+                <li
+                  key={link.href}
+                  className={`nav-link transition ${
+                    active ? 'text-primary font-semibold' : 'hover:text-primary'
                   }`}
                 >
                   <Link to={link.href} aria-current={active ? 'page' : undefined}>
@@ -314,7 +354,7 @@ function Navbar() {
       )}
 
       {/* News ticker — sits below nav on all breakpoints */}
-      <div className="px-6 md:px-8 mt-4">
+      <div className={`px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'mt-2' : 'mt-4'}`}>
         <NewsTicker />
       </div>
 
