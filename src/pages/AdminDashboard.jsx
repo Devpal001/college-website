@@ -26,7 +26,7 @@ import {
  */
 const MODULE_CARDS = [
   { key: 'users', title: 'User Management', description: 'Provision student, teacher and admin accounts; view the user directory.', icon: Users, to: '/admin/users', comingSoon: false },
-  { key: 'teacher-management', title: 'Teacher Management', description: 'Manage faculty profiles and department assignments.', icon: UserCheck, to: null, comingSoon: true },
+ { key: 'teacher-management', title: 'Teacher Management', description: 'Assign subjects and classes to faculty — managed inside User Management.', icon: UserCheck, to: '/admin/users', comingSoon: false },
   { key: 'academic-records', title: 'Academic Records', description: 'Courses, semesters, sections and academic structure.', icon: BookOpen, to: null, comingSoon: true },
   { key: 'timetable', title: 'Timetable Manager', description: 'Create, edit and delete weekly lectures: class, subject, teacher, room and time.', icon: CalendarRange, to: '/admin/timetable', comingSoon: false },
   { key: 'attendance', title: 'Attendance', description: 'Monitor and manage attendance across all classes.', icon: ClipboardCheck, to: null, comingSoon: true },
