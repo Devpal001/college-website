@@ -26,6 +26,7 @@ const INPUT_CLASS =
 
 const EMPTY_FORM = {
   section_id: '',
+  semester_id: '',
   subject_id: '',
   teacher_id: '',
   room_id: '',
@@ -79,7 +80,17 @@ export default function AdminTimetable() {
     load();
   }, [load]);
 
-  const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const updateField = (key, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      // Auto-populate semester_id from the selected section (section → semester is a fixed FK).
+      if (key === 'section_id') {
+        const sec = sections.find((s) => s.id === value);
+        next.semester_id = sec?.semester_id || '';
+      }
+      return next;
+    });
+  };
 
   function startCreate() {
     setEditingId(null);
@@ -92,6 +103,7 @@ export default function AdminTimetable() {
     setEditingId(l.id);
     setForm({
       section_id: l.section_id || '',
+      semester_id: l.semester_id || '',
       subject_id: l.subject_id || '',
       teacher_id: l.teacher_id || '',
       room_id: l.room_id || '',
@@ -107,6 +119,7 @@ export default function AdminTimetable() {
 
   function validate() {
     if (!form.section_id) return 'Select a class (section).';
+    if (!form.semester_id) return 'Semester is required (select a class first).';
     if (!form.subject_id) return 'Select a subject.';
     if (!form.teacher_id) return 'Select a teacher.';
     if (!form.day_of_week) return 'Select a day.';
@@ -128,6 +141,7 @@ export default function AdminTimetable() {
     try {
       const payload = {
         section_id: form.section_id,
+        semester_id: form.semester_id,
         subject_id: form.subject_id,
         teacher_id: form.teacher_id,
         room_id: form.room_id || null,
