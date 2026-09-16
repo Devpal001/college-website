@@ -320,8 +320,10 @@ p {
    toggle behaviour is untouched. Endpoints match the previous toggled
    states exactly:
      p = 0 → big centered logo, expanded pill, clean background
-     p = 1 → compact bar: logo + MBSCET/Jammu lockup + compact pill
-             (all 8 links) on bg-navbar with a bottom border
+     p = 1 → compact bar (768–1023px): logo + MBSCET/Jammu lockup +
+             compact pill on its own row, on bg-navbar with a border
+     p = 1 → compact bar (lg+, see the 1024px block below): ONE row —
+             [logo + lockup] [pill, all 8 links] [theme/Login/Apply]
    ───────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
   .nav-root {
@@ -376,6 +378,69 @@ p {
   .nav-morph-ticker {
     transition: none;
     margin-top: calc(1rem - var(--nav-p, 0) * 0.5rem); /* mt-4 → mt-2 */
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   One-row compact bar (lg+ only)
+   At lg+ the scrolled bar is a single flex line (the logo row):
+   [logo + lockup] [nav pill] [theme + auth + Apply Now]. The top row
+   collapses away while its controls crossfade into the inline set, and
+   the pill/controls bands grow out of zero width — all from --nav-p, so
+   the morph stays continuous in both directions. 768–1023px keeps the
+   two-row compact layout above: a full 8-link pill plus auth controls
+   cannot physically fit beside the logo at 768px.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .nav-morph-toprow {
+    transition: none;
+    height: calc(4rem - var(--nav-p, 0) * 4rem); /* band collapses to 0 */
+    padding-top: calc(1.5rem - var(--nav-p, 0) * 1.5rem); /* pt-6 → 0 */
+    overflow: hidden;
+  }
+  .nav-morph-toprow-controls {
+    opacity: calc(1 - min(1, var(--nav-p, 0) * 2)); /* gone by half-morph */
+  }
+  .nav-morph-logo-row {
+    transition: none;
+    margin-top: calc(-1rem + var(--nav-p, 0) * 1rem); /* -mt-4 → 0 (no toprow left to overlap) */
+    margin-bottom: calc(1rem - var(--nav-p, 0) * 0.5rem); /* md:mb-4 → mb-2 */
+    padding-top: calc(var(--nav-p, 0) * 0.5rem); /* breathing room when compact */
+  }
+  .nav-morph-spacer-c {
+    flex-grow: var(--nav-p, 0); /* 0 → 1: pill drifts toward center */
+  }
+  .nav-morph-pill-lg-wrap {
+    max-width: calc(var(--nav-p, 0) * 700px); /* band grows out of zero width */
+    overflow: hidden;
+  }
+  .nav-morph-controls-lg-wrap {
+    max-width: calc(var(--nav-p, 0) * 480px);
+    overflow: hidden;
+  }
+  .nav-morph-pill-lg {
+    font-size: calc(0.875rem - var(--nav-p, 0) * 0.1875rem); /* 14px → 11px */
+    padding: calc(0.75rem - var(--nav-p, 0) * 0.375rem) calc(2rem - var(--nav-p, 0) * 1rem); /* py-3 px-8 → py-1.5 px-4 */
+    opacity: var(--nav-p, 0);
+    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem));
+  }
+  .nav-morph-pill-lg > ul {
+    gap: calc(2rem - var(--nav-p, 0) * 1.25rem); /* gap-8 → gap-3 */
+  }
+  .nav-morph-controls-lg {
+    opacity: var(--nav-p, 0);
+    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem));
+  }
+}
+
+/* Roomier compact endpoints once there is width to spare (≥1280px). */
+@media (min-width: 1280px) {
+  .nav-morph-pill-lg {
+    font-size: calc(0.875rem - var(--nav-p, 0) * 0.125rem); /* 14px → 12px */
+    padding: calc(0.75rem - var(--nav-p, 0) * 0.25rem) calc(2rem - var(--nav-p, 0) * 0.75rem); /* py-3 px-8 → py-2 px-5 */
+  }
+  .nav-morph-pill-lg > ul {
+    gap: calc(2rem - var(--nav-p, 0) * 0.75rem); /* gap-8 → gap-5 */
   }
 }
 

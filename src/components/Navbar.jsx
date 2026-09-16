@@ -85,6 +85,19 @@ function Navbar() {
     }
   }, [darkMode]);
 
+  // The notification bell polls the API, so exactly one instance may be
+  // mounted. matchMedia picks the mount point: top row below lg, inline
+  // bar row at lg+ (re-evaluated on resize so the bell follows the layout).
+  const [isDesktopWide, setIsDesktopWide] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e) => setIsDesktopWide(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   const dashboardPath = profile?.role ? dashboardPathForRole(profile.role) : null;
 
   const handleLogout = async () => {
@@ -173,7 +186,10 @@ function Navbar() {
         className="absolute inset-0 bg-navbar border-b border-text-muted/25 pointer-events-none -z-10 hidden md:block"
         style={{ opacity: 'var(--nav-p, 0)' }}
       />
-      {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger (mobile) right */}
+      {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger
+          (mobile) right. At lg+ this row collapses away during the morph and
+          its controls crossfade into the inline set in the logo row below,
+          leaving ONE bar row (see the 1024px block in index.css). */}
       <div className={`nav-morph-toprow w-full flex items-center justify-between px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'pt-3' : 'pt-6'}`}>
         <div className={`nav-morph-brand font-bold text-text-main leading-tight transition-all duration-300 ${isScrolled ? 'text-xs' : 'text-sm'}`}>
           <span className={`block transition-all duration-300 ${isScrolled ? 'hidden md:block' : 'block'}`}>
@@ -181,8 +197,13 @@ function Navbar() {
           </span>
         </div>
 
-        {/* Desktop controls */}
-        <div className="hidden md:flex items-center gap-3">
+        {/* Desktop controls. At lg+ these fade out while the row collapses;
+            `inert` once scrolled keeps the collapsing copy out of the tab
+            order without a visibility pop. */}
+        <div
+          className={`nav-morph-toprow-controls hidden md:flex items-center gap-3 ${isScrolled ? 'lg:invisible' : ''}`}
+          inert={isScrolled}
+        >
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="w-10 h-10 rounded-full bg-navbar shadow-soft flex items-center justify-center hover:shadow-soft-lg active:shadow-inset transition"
@@ -191,7 +212,9 @@ function Navbar() {
             {darkMode ? <Sun className="text-primary" size={18} /> : <Moon className="text-primary" size={18} />}
           </button>
 
-          {user && <NotificationBell />}
+          {/* Single live bell instance — matchMedia mounts exactly one copy
+              (this row below lg, the inline bar row at lg+). */}
+          {user && !isDesktopWide && <NotificationBell />}
 
           {user ? (
             <>
@@ -254,7 +277,9 @@ function Navbar() {
           The invisible flex spacers interpolate the old justify-content
           swap so the logo glides left instead of teleporting; mobile keeps
           the original binary classes untouched. The lockup adds the
-          MBSCET + Jammu branding beside the logo in the compact bar. */}
+          MBSCET + Jammu branding beside the logo in the compact bar. At lg+
+          this row IS the compact bar: the pill and control bands grow out of
+          zero width to land [logo][pill][controls] on one line. */}
       <div className={`nav-morph-logo-row transition-all duration-300 flex items-center ${isScrolled ? 'justify-start px-6 md:px-8 -mt-2' : 'justify-center -mt-2 md:-mt-4'} mb-2 md:mb-4`}>
         <div aria-hidden="true" className="hidden md:block flex-1 nav-morph-spacer-l" />
         <div className="relative shrink-0">
@@ -268,7 +293,96 @@ function Navbar() {
             <span className="block text-primary text-xs font-medium leading-tight">Jammu</span>
           </div>
         </div>
+        <div aria-hidden="true" className="hidden lg:block flex-1 nav-morph-spacer-c" />
+
+        {/* lg+ inline nav pill — the compact bar's single-row [logo][pill]
+            layout. The band grows out of zero width while the pill fades up,
+            crossfading with the expanded pill row; index.css also interpolates
+            its type size/gap/padding so ONE element serves the expanded and
+            compact states. `inert` below the scroll threshold keeps its links
+            out of the tab order (mobile and md–lg use the pill rows instead —
+            this stays display:none there). */}
+        <div
+          className="nav-morph-pill-lg-wrap hidden lg:block min-w-0"
+          inert={!isScrolled}
+        >
+          <nav className="nav-morph-pill-lg bg-navbar rounded-full shadow-soft" aria-label="Primary">
+            <ul className="flex items-center font-medium text-text-main whitespace-nowrap">
+              {navLinks.map((link) => {
+                const active = location.pathname === link.href;
+                return (
+                  <li
+                    key={link.href}
+                    className={`nav-link transition ${
+                      active ? 'text-primary font-semibold' : 'hover:text-primary'
+                    }`}
+                  >
+                    <Link to={link.href} aria-current={active ? 'page' : undefined}>
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
+
         <div aria-hidden="true" className="hidden md:block flex-1" />
+
+        {/* lg+ inline controls — theme, notifications, auth and Apply Now land
+            on the same single row as the logo and pill. Mirrors the top-row
+            controls (which fade/collapse away at lg+) with tighter sizing at
+            1024–1279px so the row always fits; `inert` keeps this copy out of
+            the tab order until the bar is compact. */}
+        <div
+          className="nav-morph-controls-lg-wrap hidden lg:block min-w-0"
+          inert={!isScrolled}
+        >
+          <div className="nav-morph-controls-lg flex items-center gap-2 xl:gap-3">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="w-9 h-9 xl:w-10 xl:h-10 rounded-full bg-navbar shadow-soft flex items-center justify-center hover:shadow-soft-lg active:shadow-inset transition"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun className="text-primary" size={18} /> : <Moon className="text-primary" size={18} />}
+            </button>
+
+            {isDesktopWide && <NotificationBell />}
+
+            {user ? (
+              <>
+                {dashboardPath && (
+                  <Link
+                    to={dashboardPath}
+                    className="text-xs xl:text-sm font-medium text-primary hover:underline transition"
+                  >
+                    Dashboard
+                  </Link>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-xs xl:text-sm font-medium text-text-main hover:text-primary transition"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="text-xs xl:text-sm font-medium text-text-main hover:text-primary transition"
+              >
+                Login
+              </Link>
+            )}
+
+            <Link
+              to="/admissions"
+              className="bg-primary text-white px-3 py-1.5 xl:px-5 xl:py-2 rounded-soft shadow-soft hover:bg-primary-dark active:scale-95 active:shadow-inset transition text-xs xl:text-sm"
+            >
+              Apply Now
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Desktop nav pill (expanded state) — always mounted on md+. Its band
@@ -298,12 +412,14 @@ function Navbar() {
         </nav>
       </div>
 
-      {/* Compact nav pill on scroll — renders the FULL navLinks list (the old
-          slice(0, 4) dropped Gallery/News/Placements/Contact from the DOM).
-          Its band grows and it fades/slides in with --nav-p while the
-          expanded pill fades out; md:invisible below the threshold keeps it
-          out of tab order / the accessibility tree (mobile stays hidden). */}
-      <div className={`nav-morph-pill-compact ${isScrolled ? 'justify-start px-8 md:flex' : 'hidden md:flex md:invisible'}`}>
+      {/* Compact nav pill on scroll (768–1023px only — at lg+ the inline pill
+          in the logo row takes over, keeping the bar to ONE row). Renders the
+          FULL navLinks list (the old slice(0, 4) dropped
+          Gallery/News/Placements/Contact from the DOM). Its band grows and it
+          fades/slides in with --nav-p while the expanded pill fades out;
+          md:invisible below the threshold keeps it out of tab order / the
+          accessibility tree (mobile stays hidden). */}
+      <div className={`nav-morph-pill-compact ${isScrolled ? 'justify-start px-8 md:flex' : 'hidden md:flex md:invisible'} lg:hidden`}>
         <nav className="bg-navbar shadow-soft rounded-full px-6 py-2">
           <ul className="flex gap-6 text-text-main font-medium text-xs">
             {navLinks.map((link) => {
