@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 function Contact() {
@@ -15,17 +15,15 @@ function Contact() {
     e.preventDefault();
     setStatus('sending');
 
-    const { error } = await supabase
-      .from('messages')
-      .insert([{ name, email, message }]);
-
-    if (error) {
-      setStatus('error');
-    } else {
+    try {
+      // Submitted through the Express API (server/routes/public.js).
+      await api.post('/contact', { name, email, message });
       setStatus('success');
       setName('');
       setEmail('');
       setMessage('');
+    } catch {
+      setStatus('error');
     }
   };
 

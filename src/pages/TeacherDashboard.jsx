@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useTabParam } from '../hooks/useTabParam';
+import { getInitials } from '../lib/format';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TimetableGrid from '../components/TimetableGrid';
@@ -109,22 +110,17 @@ function SelectField({ label, value, onChange, options, placeholder, disabled, e
 function TeacherDashboard() {
   const [data, setData] = useState(null);
   const [assessments, setAssessments] = useState([]);
-    const [error, setError] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const VALID_TABS = ['overview', 'subjects', 'students', 'attendance', 'marks', 'schedule'];
-  const initialTab = searchParams.get('tab');
-  const [tab, setTab] = useState(VALID_TABS.includes(initialTab) ? initialTab : 'overview');
-
-  // Keep the URL ?tab= synced so PortalLayout nav and deep links work.
-  const changeTab = (id) => {
-    setTab(id);
-    const params = new URLSearchParams(searchParams);
-    if (id === 'overview') params.delete('tab');
-    else params.set('tab', id);
-    setSearchParams(params, { replace: true });
-  };
+  const [tab, changeTab] = useTabParam([
+    'overview',
+    'subjects',
+    'students',
+    'attendance',
+    'marks',
+    'schedule',
+  ]);
 
   // Attendance marking state
   const [attClass, setAttClass] = useState('');
@@ -391,12 +387,7 @@ function TeacherDashboard() {
 
   const { profile, teacher, department } = data;
   const name = profile?.full_name || teacher?.employee_id || 'Teacher';
-  const initials = name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const initials = getInitials(name);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },

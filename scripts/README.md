@@ -1,4 +1,27 @@
-# Image Migration Scripts
+# Scripts — Image Migration, Tests & Backups
+
+## Verification, tests & backups
+
+Run these from the repo root. Engineering context: `docs/INDUSTRIAL_AUDIT.md`
+and `docs/BACKUP_MIGRATION.md`.
+
+| Script | What it covers | Needs a running server? |
+| --- | --- | --- |
+| `node scripts/status.mjs` | web + API health summary | API/web must be up |
+| `node scripts/test-shared-libs.mjs` | pure helpers: attendance/marks rules, formatting | no |
+| `node scripts/test-public-forms.mjs` | `POST /api/admissions`, `POST /api/contact`, `GET /api/auth/me`, rate limiting | no (boots its own API) |
+| `node scripts/test-auth-gate.mjs` | fail-closed demo-login gate, 401 on protected routes | no (boots its own API) |
+| `node scripts/test-demo-login.mjs` | demo login + student/teacher/admin APIs + removed legacy routes | yes |
+| `node scripts/verify-timetable-smoke.mjs` | timetable CRUD + profile updates end-to-end | yes |
+| `node scripts/test-phase2-login.mjs`, `test-activation.mjs`, `test-user-provisioning.mjs` | institutional login, activation codes, provisioning | yes |
+| `node scripts/export-data.mjs` / `restore-data.mjs` / `verify-data.mjs` | snapshot, guarded restore (dry-run by default), verification | no |
+
+Shortcuts: `npm run test:libs`, `npm run test:forms`, `npm run backup`,
+`npm run restore`, `npm run verify:data`.
+
+The rest of this file covers image migration (separate concern).
+
+## Quick Start
 
 These scripts help you migrate images from your existing college website to the new React application.
 

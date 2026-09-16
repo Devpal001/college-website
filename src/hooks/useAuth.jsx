@@ -1,60 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import {
-  getSession,
-  getUserProfile,
-  supabase
-} from '../lib/auth';
+  getSessionState,
+  startSessionTracking,
+  subscribeSession,
+} from '../lib/sessionStore';
 
 /**
- * Custom hook for authentication state
+ * Authentication state for the current browser session.
+ *
+ * Delegates to lib/sessionStore: ONE shared Supabase auth subscription and
+ * ONE server-side role resolution (`GET /api/auth/me`) for the whole app,
+ * instead of every component re-querying the database on its own.
+ *
+ * @returns {{ session: object|null, user: object|null, profile: object|null, loading: boolean }}
  */
 export function useAuth() {
-  const [session, setSession] = useState(null);
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    async function loadAuth() {
-      try {
-        const sessionData = await getSession();
-        setSession(sessionData);
-
-        if (sessionData?.user) {
-          setUser(sessionData.user);
-          const profileData = await getUserProfile(sessionData.user.id);
-          setProfile(profileData);
-        }
-      } catch (error) {
-        console.error('Error loading auth:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user || null);
-      
-      if (session?.user) {
-        try {
-          const profileData = await getUserProfile(session.user.id);
-          setProfile(profileData);
-        } catch (error) {
-          console.error('Error loading profile:', error);
-          setProfile(null);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    startSessionTracking();
   }, []);
 
-  return { session, user, profile, loading };
+  return useSyncExternalStore(subscribeSession, getSessionState);
 }
+
+export default useAuth;

@@ -1,6 +1,7 @@
 import express from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { supabase } from '../lib/db.js';
+import { averageMarksPercentage, percentage, summarizeAttendance } from '../lib/academics.js';
 import { classifyContent } from '../lib/ai.js';
 
 import { sendError } from '../lib/httpError.js';
@@ -116,17 +117,15 @@ async function get_student_attendance(userId, subjectId = null) {
 
   if (error) throw error;
 
-  // Calculate attendance percentage.
-  // 'late' still counts as having attended the class.
-  const total = data.length;
-  const present = data.filter(a => a.status === 'present' || a.status === 'late').length;
-  const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+  // Attendance summary — the "late still counts as attended" rule and the
+  // rounding both come from server/lib/academics.js.
+  const summary = summarizeAttendance(data, { decimals: 0 });
 
   return {
-    total,
-    present,
-    absent: total - present,
-    percentage,
+    total: summary.total,
+    present: summary.presentCount,
+    absent: summary.total - summary.presentCount,
+    percentage: summary.percentage,
     details: data
   };
 }
@@ -152,17 +151,10 @@ async function get_student_marks(userId, semesterId = null) {
 
   if (error) throw error;
 
-  // Calculate average — guard against missing/zero marks_max
-  // so the response never contains NaN or Infinity.
-  const valid = data.filter(
-    m => Number.isFinite(Number(m.marks_obtained)) &&
-         Number.isFinite(Number(m.marks_max)) &&
-         Number(m.marks_max) > 0
-  );
-  const total = valid.length;
-  const average = total > 0
-    ? Math.round(valid.reduce((sum, m) => sum + (Number(m.marks_obtained) / Number(m.marks_max)) * 100, 0) / total)
-    : 0;
+  // Average score across assessments — the "ignore missing/zero max marks so
+  // the response never contains NaN/Infinity" rule lives in
+  // server/lib/academics.js (averageMarksPercentage).
+  const { total, average } = averageMarksPercentage(data);
 
   return {
     total,
@@ -419,7 +411,7 @@ router.post('/chat', authRequired, async (req, res) => {
             .slice(-3)
             .map(m => {
               const max = Number(m.marks_max) || 0;
-              const pct = max > 0 ? Math.round((Number(m.marks_obtained) / max) * 100) : '—';
+              const pct = max > 0 ? percentage(m.marks_obtained, max) : '—';
               return `${m.assessments.title} (${pct}%)`;
             });
           if (recent.length > 0) {

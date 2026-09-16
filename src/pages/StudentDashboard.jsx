@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useTabParam } from '../hooks/useTabParam';
+import { getInitials } from '../lib/format';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TimetableGrid from '../components/TimetableGrid';
@@ -71,20 +72,8 @@ function StudentDashboard() {
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
   const [loading, setLoading] = useState(true);
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const VALID_TABS = ['overview', 'attendance', 'marks', 'timetable'];
-  const initialTab = searchParams.get('tab');
-  const [tab, setTab] = useState(VALID_TABS.includes(initialTab) ? initialTab : 'overview');
-
-  // Keep the URL ?tab= synced so PortalLayout nav and deep links work.
-  const changeTab = (id) => {
-    setTab(id);
-    const params = new URLSearchParams(searchParams);
-    if (id === 'overview') params.delete('tab');
-    else params.set('tab', id);
-    setSearchParams(params, { replace: true });
-  };
+  const [tab, changeTab] = useTabParam(['overview', 'attendance', 'marks', 'timetable']);
 
   const loadDashboard = useCallback(async () => {
     setError('');
@@ -148,12 +137,7 @@ function StudentDashboard() {
 
   const { profile, student, department, semester, section, attendanceSummary, marksSummary } = data;
   const name = profile?.full_name || student?.enrollment_number || 'Student';
-  const initials = name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const initials = getInitials(name);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },

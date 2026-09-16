@@ -65,16 +65,14 @@ export async function signInWithEmail(email, password) {
 
   if (error) throw error;
 
-  // Phase 3 account-status enforcement: even though the backend blocks
-  // protected API requests for non-active accounts, we also reject here so the
-  // frontend does not enter a logged-in-but-blocked state.
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('status')
-    .eq('id', data.user.id)
-    .single();
-
-  if (profileError || !profile || profile.status !== 'active') {
+  // Phase 3 account-status enforcement: the API (authRequired) rejects
+  // non-active accounts, so one probe of /auth/me is enough to keep the
+  // frontend out of a logged-in-but-blocked state. This is the same
+  // server-side check the rest of the app relies on — the browser no longer
+  // queries the `profiles` table directly.
+  try {
+    await getCurrentProfile();
+  } catch {
     await supabase.auth.signOut();
     throw new Error('Account is not active');
   }
@@ -128,16 +126,16 @@ export async function getSession() {
 // ============================================
 
 /**
- * Get user profile with role
+ * Role + profile of the signed-in user, resolved SERVER-SIDE.
+ *
+ * GET /api/auth/me runs the authRequired middleware, which validates the JWT,
+ * loads the profile and rejects pending/suspended/disabled accounts. The
+ * browser therefore never decides which role it is shown, and no component
+ * reads the `profiles` table directly.
  */
-export async function getUserProfile(userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function getCurrentProfile() {
+  const { profile } = await api.get('/auth/me');
+  if (!profile) throw new Error('Profile not found');
+  return profile;
 }
 

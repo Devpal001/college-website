@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 function Admissions() {
@@ -31,15 +31,17 @@ function Admissions() {
     setSubmitting(true);
     setError('');
 
-    const { error } = await supabase.from('admissions').insert([form]);
-
-    setSubmitting(false);
-
-    if (error) {
-      setError(error.message);
-    } else {
+    try {
+      // Submitted through the Express API (server/routes/public.js): the browser
+      // never writes to the database directly, so storage stays a backend
+      // concern and no database credentials or table names are needed here.
+      await api.post('/admissions', form);
       setSuccess(true);
       setForm({ full_name: '', email: '', phone: '', course_applied: '', message: '' });
+    } catch (err) {
+      setError(err.message || 'Could not submit your application. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 

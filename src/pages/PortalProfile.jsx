@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { getInitials } from '../lib/format';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
@@ -139,7 +140,7 @@ export default function PortalProfile() {
     const isTeacher = Boolean(teacher);
     const isStudent = Boolean(student);
     const name = profile?.full_name || 'Portal User';
-    const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    const initials = getInitials(name);
 
     const identityRows = student
       ? [

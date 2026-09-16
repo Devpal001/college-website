@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../lib/db.js';
+import { percentage, summarizeAttendance } from '../lib/academics.js';
 import {
   authRequired,
   getStudentForAuth,
@@ -486,42 +487,25 @@ router.get('/:studentId/marks', async (req, res) => {
 
 // ============================================
 // Summary helpers (shared)
+// --------------------------------------------
+// Attendance/marks arithmetic lives in server/lib/academics.js so the
+// dashboard, the AI assistant and any future report agree on the rules.
 // ============================================
-
-function summarizeAttendance(records) {
-  const summary = { present: 0, absent: 0, late: 0, excused: 0, total: records.length };
-  for (const r of records) {
-    const status = r.status || 'absent';
-    if (summary[status] === undefined) summary[status] = 0;
-    summary[status] += 1;
-  }
-  summary.presentCount = summary.present + summary.late;
-  summary.percentage =
-    summary.total > 0 ? Math.round((summary.presentCount / summary.total) * 1000) / 10 : 0;
-  return summary;
-}
 
 function summarizeAttendanceBySubject(records) {
   const bySubject = new Map();
-  for (const r of records) {
-    const session = r.attendance_sessions;
+  for (const record of records) {
+    const session = record.attendance_sessions;
     if (!session?.subject_id) continue;
     const subject = session.subjects || { id: session.subject_id, name: 'Unknown', code: '—' };
     const key = subject.id || subject.code;
-    if (!bySubject.has(key)) {
-      bySubject.set(key, { subject, present: 0, absent: 0, late: 0, excused: 0, total: 0 });
-    }
-    const bucket = bySubject.get(key);
-    bucket.total += 1;
-    const status = r.status || 'absent';
-    if (bucket[status] === undefined) bucket[status] = 0;
-    bucket[status] += 1;
+    if (!bySubject.has(key)) bySubject.set(key, { subject, records: [] });
+    bySubject.get(key).records.push(record);
   }
-  return Array.from(bySubject.values()).map((b) => {
-    b.presentCount = b.present + b.late;
-    b.percentage = b.total > 0 ? Math.round((b.presentCount / b.total) * 1000) / 10 : 0;
-    return b;
-  });
+  return Array.from(bySubject.values()).map(({ subject, records: subjectRecords }) => ({
+    subject,
+    ...summarizeAttendance(subjectRecords),
+  }));
 }
 function summarizeMarks(records) {
   const bySubject = new Map();
@@ -557,14 +541,14 @@ function summarizeMarks(records) {
   return {
     obtainedSum,
     maxSum,
-    overallPercentage: maxSum > 0 ? Math.round((obtainedSum / maxSum) * 1000) / 10 : 0,
+    overallPercentage: percentage(obtainedSum, maxSum, { decimals: 1 }),
     bySubject: Array.from(bySubject.values()).map((b) => ({
       ...b,
-      percentage: b.max > 0 ? Math.round((b.obtained / b.max) * 1000) / 10 : 0,
+      percentage: percentage(b.obtained, b.max, { decimals: 1 }),
     })),
     byAssessment: Array.from(assessments.values()).map((a) => ({
       ...a,
-      percentage: a.max > 0 ? Math.round((a.obtained / a.max) * 1000) / 10 : 0,
+      percentage: percentage(a.obtained, a.max, { decimals: 1 }),
     })),
   };
 }

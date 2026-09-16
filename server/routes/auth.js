@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/db.js';
+import { authRequired } from '../middleware/auth.js';
 import { HttpError, sendError } from '../lib/httpError.js';
+import { createRateLimiter } from '../lib/rateLimit.js';
 import { requireString, requireEmail } from '../lib/validate.js';
 import { assertPasswordPolicy } from '../lib/password.js';
 import {
@@ -100,24 +102,32 @@ function createSessionAuthClient() {
 }
 
 // --------------------------------------------
-// Naive in-memory rate limiter (per IP).
-// Demo-grade: fine for a single dev server, not for a cluster.
+// Rate limiting (shared reusable implementation)
 // --------------------------------------------
-const ATTEMPT_WINDOW_MS = 60_000;
-const MAX_ATTEMPTS_PER_WINDOW = 10;
-const attemptLog = new Map(); // ip -> number[] (timestamps)
+// All three auth routes share ONE limiter instance, and therefore one bucket
+// per IP — exactly as before. An attacker cannot multiply their allowed
+// attempts by spreading them across /demo-login, /login and /activate.
+// Implementation: server/lib/rateLimit.js
+// --------------------------------------------
+const authAttempts = createRateLimiter({ windowMs: 60_000, max: 10 });
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const attempts = (attemptLog.get(ip) || []).filter((t) => now - t < ATTEMPT_WINDOW_MS);
-  if (attempts.length >= MAX_ATTEMPTS_PER_WINDOW) {
-    attemptLog.set(ip, attempts);
-    return true;
-  }
-  attempts.push(now);
-  attemptLog.set(ip, attempts);
-  return false;
-}
+const rateLimitSignIn = authAttempts.middleware({
+  message: 'Too many sign-in attempts. Please wait a minute and try again.',
+});
+
+const rateLimitAttempts = authAttempts.middleware({
+  message: 'Too many attempts. Please wait a minute and try again.',
+});
+
+// --------------------------------------------
+// GET /api/auth/me — identity + authoritative role
+// --------------------------------------------
+// Backs the frontend session store (src/lib/sessionStore.js). authRequired
+// validates the JWT, loads the profile and rejects non-active accounts, so the
+// browser never has to read the `profiles` table itself.
+router.get('/me', authRequired, (req, res) => {
+  res.json({ user: req.user, profile: req.profile });
+});
 
 // --------------------------------------------
 // Helpers
@@ -221,16 +231,10 @@ function safeProfile(profile) {
 // POST /api/auth/demo-login
 // Body: { portalId, role }  — role comes from the portal picker.
 // ============================================
-router.post('/demo-login', async (req, res) => {
+router.post('/demo-login', rateLimitSignIn, async (req, res) => {
   try {
     if (!DEMO_LOGIN_ENABLED) {
       return res.status(404).json({ error: 'Not found' });
-    }
-
-    if (isRateLimited(req.ip || 'unknown')) {
-      return res.status(429).json({
-        error: 'Too many sign-in attempts. Please wait a minute and try again.',
-      });
     }
 
     const portalId = String(req.body?.portalId || '').trim().toUpperCase();
@@ -353,14 +357,8 @@ const ACTIVATION_GENERIC_ERROR =
 const LOGIN_GENERIC_ERROR =
   'Login failed. Check your institutional ID and password, then try again.';
 
-router.post('/login', async (req, res) => {
+router.post('/login', rateLimitAttempts, async (req, res) => {
   try {
-    if (isRateLimited(req.ip || 'unknown')) {
-      return res.status(429).json({
-        error: 'Too many attempts. Please wait a minute and try again.',
-      });
-    }
-
     const institutionalId = normalizeInstitutionalId(
       requireString(req.body?.institutionalId, 'institutionalId', { min: 2, max: 40 })
     );
@@ -451,14 +449,8 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/activate', async (req, res) => {
+router.post('/activate', rateLimitAttempts, async (req, res) => {
   try {
-    if (isRateLimited(req.ip || 'unknown')) {
-      return res.status(429).json({
-        error: 'Too many attempts. Please wait a minute and try again.',
-      });
-    }
-
     const institutionalId = normalizeInstitutionalId(
       requireString(req.body?.institutionalId, 'institutionalId', { min: 2, max: 40 })
     );

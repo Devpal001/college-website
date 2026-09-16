@@ -1,9 +1,10 @@
-import { supabase } from '../lib/supabase';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/mbslogo.png';
 import NewsTicker from './NewsTicker';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { dashboardPathForRole, signOut } from '../lib/auth';
 import { Sun, Moon, Menu, X, Images, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
 const navLinks = [
@@ -28,8 +29,10 @@ function Navbar() {
     }
     return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
   });
-  const [session, setSession] = useState(null);
-  const [role, setRole] = useState(null);
+  // Session + authoritative role come from the shared session store (one
+  // Supabase subscription and one server-resolved role per page load) — this
+  // component previously kept its own duplicate copy of both.
+  const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const menuButtonRef = useRef(null);
@@ -58,61 +61,15 @@ function Navbar() {
     }
   }, [darkMode]);
 
-  useEffect(() => {
-    async function load() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      if (session?.user) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          setRole(profile?.role || null);
-        } catch {
-          setRole(null);
-        }
-      } else {
-        setRole(null);
-      }
-    }
-    load();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          setRole(profile?.role || null);
-        } catch {
-          setRole(null);
-        }
-      } else {
-        setRole(null);
-      }
-    });
-
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  const dashboardPath =
-    role === 'student'
-      ? '/student-dashboard'
-      : role === 'teacher'
-        ? '/teacher-dashboard'
-        : role === 'admin' || role === 'super_admin'
-          ? '/admin-dashboard'
-          : null;
+  const dashboardPath = profile?.role ? dashboardPathForRole(profile.role) : null;
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await signOut();
+    } catch {
+      // Best effort: the shared auth listener clears the session locally even
+      // if the server sign-out call fails.
+    }
     setMenuOpen(false);
   };
 
@@ -173,7 +130,14 @@ function Navbar() {
   }, [menuOpen]);
 
   return (
-    <div className={`relative w-full transition-all duration-300 ${isScrolled ? 'pb-2' : 'pb-6'}`}>
+    // Position: in-flow `relative` below md (original mobile behaviour — mobile
+    // navigation lives in the fixed bottom bar, and pinning the tall header
+    // would swallow a phone viewport), `sticky` from md up so the compact
+    // scrolled nav stays pinned. Sticky's containing block is #root (full page
+    // height — verified free of overflow/transform ancestors), so the bar stays
+    // pinned at every scroll depth. The background appears only once scrolled —
+    // the initial hero presentation stays clean.
+    <div className={`relative w-full transition-all duration-300 md:sticky md:top-0 md:z-50 ${isScrolled ? 'pb-2 bg-navbar border-b border-text-muted/25' : 'pb-6'}`}>
       {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger (mobile) right */}
       <div className={`w-full flex items-center justify-between px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'pt-3' : 'pt-6'}`}>
         <div className={`font-bold text-text-main leading-tight transition-all duration-300 ${isScrolled ? 'text-xs' : 'text-sm'}`}>
@@ -192,9 +156,9 @@ function Navbar() {
             {darkMode ? <Sun className="text-primary" size={18} /> : <Moon className="text-primary" size={18} />}
           </button>
 
-          {session && <NotificationBell />}
+          {user && <NotificationBell />}
 
-          {session ? (
+          {user ? (
             <>
               {dashboardPath && (
                 <Link
@@ -259,8 +223,9 @@ function Navbar() {
         />
       </div>
 
-      {/* Desktop nav pill */}
-      <div className={`hidden md:flex justify-center transition-all duration-300 ${isScrolled ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
+      {/* Desktop nav pill — display-swapped (not visibility) so the inactive
+          pill stops reserving ~60px of dead space inside the pinned bar. */}
+      <div className={`${isScrolled ? 'hidden' : 'hidden justify-center md:flex'}`}>
         <nav className="bg-navbar shadow-soft rounded-full px-8 py-3">
           <ul className="flex gap-8 text-text-main font-medium text-sm">
             {navLinks.map((link) => {
@@ -282,11 +247,12 @@ function Navbar() {
         </nav>
       </div>
 
-      {/* Compact nav pill on scroll */}
-      <div className={`hidden md:flex justify-start px-8 transition-all duration-300 ${isScrolled ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+      {/* Compact nav pill on scroll — renders the FULL navLinks list (the old
+          slice(0, 4) dropped Gallery/News/Placements/Contact from the DOM). */}
+      <div className={`${isScrolled ? 'justify-start px-8 md:flex' : 'hidden'}`}>
         <nav className="bg-navbar shadow-soft rounded-full px-6 py-2">
           <ul className="flex gap-6 text-text-main font-medium text-xs">
-            {navLinks.slice(0, 4).map((link) => {
+            {navLinks.map((link) => {
               const active = location.pathname === link.href;
               return (
                 <li
@@ -335,7 +301,7 @@ function Navbar() {
                 );
               })}
               <li className="border-t border-text-muted/25 pt-3">
-                {session ? (
+                {user ? (
                   <button
                     onClick={handleLogout}
                     className="block text-left w-full hover:text-primary transition"
@@ -394,7 +360,7 @@ function Navbar() {
             <Images size={20} />
             <span className="text-xs">Gallery</span>
           </Link>
-          {session && (
+          {user && (
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('mbscet:open-ai-assistant'))}

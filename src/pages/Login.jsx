@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { signInWithPortalId, signInWithInstitutionalId, signInWithEmail, getUserProfile, dashboardPathForRole } from '../lib/auth';
+import { signInWithPortalId, signInWithInstitutionalId, signInWithEmail, getCurrentProfile, dashboardPathForRole } from '../lib/auth';
 import { useAuth } from '../hooks/useAuth';
 import {
   GraduationCap,
@@ -141,11 +141,12 @@ export default function PortalLogin() {
     setError('');
     setLoading(true);
     try {
-      const { user: authUser } = await signInWithEmail(email, password);
+      await signInWithEmail(email, password);
       // Route to the role's own dashboard (same contract as the portal-ID
       // login). The old `navigate('/')` raced with the session-aware redirect
       // above and dropped successfully signed-in users on the home page.
-      const profile = await getUserProfile(authUser.id);
+      // The role comes from the API, never from a browser-side guess.
+      const profile = await getCurrentProfile();
       navigate(dashboardPathForRole(profile.role), { replace: true });
     } catch (err) {
       // The legacy flow keeps its own (already friendly) message convention.

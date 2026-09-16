@@ -16,6 +16,7 @@ import notificationsRouter from './routes/notifications.js';
 import assistantRouter from './routes/assistant.js';
 import usersRouter from './routes/users.js';
 import timetableRouter from './routes/timetable.js';
+import publicRouter from './routes/public.js';
 import { sendError } from './lib/httpError.js';
 import { startNewsScheduler } from './lib/scheduler.js';
 
@@ -149,6 +150,16 @@ app.use((req, res, next) => {
 // ============================================
 app.use('/api/news', newsRouter);
 app.use('/api/auth', authRouter);
+
+// Public form endpoints (admissions enquiry + contact message).
+// ⚠️ ORDER MATTERS: academicsRouter and recordsRouter are mounted at '/api'
+// and call `router.use(authRequired)` internally. Because those routers are
+// mounted on a path prefix, their middleware runs for EVERY request under
+// /api that reaches them — so any public router mounted AFTER them would be
+// rejected with 401. Public routers therefore go here, before the /api-mounted
+// authenticated ones (same reason newsRouter/authRouter are first).
+app.use('/api', publicRouter);
+
 app.use('/api', academicsRouter);
 app.use('/api/timetable', timetableRouter);
 app.use('/api/profile', profileRouter);
@@ -159,7 +170,7 @@ app.use('/api/agent', agentRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/assistant', assistantRouter);
 app.use('/api/users', usersRouter);
-console.log('✅ Modular API routers mounted (news, auth, agent, academics, timetable, profile, records, students, teachers, notifications, assistant, users)');
+console.log('✅ Modular API routers mounted (news, auth, agent, academics, timetable, profile, records, students, teachers, notifications, assistant, users, public)');
 
 // ============================================
 // HEALTH CHECK

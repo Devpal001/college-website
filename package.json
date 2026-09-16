@@ -12,6 +12,11 @@
     "seed": "node scripts/seed-demo.mjs",
     "status": "node scripts/status.mjs",
     "stop": "node scripts/stop.mjs",
+    "backup": "node scripts/export-data.mjs",
+    "restore": "node scripts/restore-data.mjs",
+    "verify:data": "node scripts/verify-data.mjs",
+    "test:libs": "node scripts/test-shared-libs.mjs",
+    "test:forms": "node scripts/test-public-forms.mjs",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
