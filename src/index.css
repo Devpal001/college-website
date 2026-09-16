@@ -310,6 +310,75 @@ p {
   transform: scaleX(1);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Navbar scroll morph (desktop ≥ md only)
+   Navbar.jsx writes --nav-p (0 → 1 across the first 100px of scroll)
+   directly onto the header element. These unlayered rules deliberately
+   override the component's Tailwind toggle classes at md+ so the pinned
+   bar interpolates continuously with scroll position (fluid in both
+   directions). Below md none of this applies — the original binary
+   toggle behaviour is untouched. Endpoints match the previous toggled
+   states exactly:
+     p = 0 → big centered logo, expanded pill, clean background
+     p = 1 → compact bar: logo + MBSCET/Jammu lockup + compact pill
+             (all 8 links) on bg-navbar with a bottom border
+   ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .nav-root {
+    transition: none;
+    padding-bottom: calc(1.5rem - var(--nav-p, 0) * 1rem); /* pb-6 → pb-2 */
+  }
+  .nav-morph-toprow {
+    transition: none;
+    padding-top: calc(1.5rem - var(--nav-p, 0) * 0.75rem); /* pt-6 → pt-3 */
+  }
+  .nav-morph-brand {
+    transition: none;
+    font-size: calc(0.875rem - var(--nav-p, 0) * 0.125rem); /* text-sm → text-xs */
+    opacity: calc(1 - min(1, var(--nav-p, 0) * 2)); /* gone by half-morph */
+  }
+  .nav-morph-logo-row {
+    transition: none;
+    margin-top: calc(-1rem + var(--nav-p, 0) * 0.5rem); /* -mt-4 → -mt-2 */
+  }
+  .nav-morph-spacer-l {
+    flex-grow: calc(1 - var(--nav-p, 0)); /* 1 → 0: logo glides to the left */
+  }
+  .nav-morph-logo {
+    transition: none;
+    height: calc(7.5rem - var(--nav-p, 0) * 4.5rem); /* md:h-30 → h-12 */
+    width: calc(7.5rem - var(--nav-p, 0) * 4.5rem);
+  }
+  .nav-morph-lockup {
+    /* MBSCET + Jammu branding beside the logo; arrives in the second half
+       of the morph, exactly as the top-row brand text finishes fading. */
+    opacity: calc(max(0, var(--nav-p, 0) * 2 - 1));
+    transform: translateY(-50%) translateX(calc((1 - var(--nav-p, 0)) * 0.5rem));
+  }
+  .nav-morph-pill-expanded {
+    transition: none;
+    height: calc(3.5rem - var(--nav-p, 0) * 3.5rem); /* band collapses to 0 */
+    overflow: hidden;
+  }
+  .nav-morph-pill-expanded > nav {
+    opacity: calc(1 - min(1, var(--nav-p, 0) * 1.6));
+    transform: translateY(calc(var(--nav-p, 0) * -0.5rem));
+  }
+  .nav-morph-pill-compact {
+    transition: none;
+    height: calc(2.25rem * var(--nav-p, 0)); /* band grows from 0 */
+    overflow: hidden;
+  }
+  .nav-morph-pill-compact > nav {
+    opacity: var(--nav-p, 0);
+    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem));
+  }
+  .nav-morph-ticker {
+    transition: none;
+    margin-top: calc(1rem - var(--nav-p, 0) * 0.5rem); /* mt-4 → mt-2 */
+  }
+}
+
 /* Enhanced link hover effect */
 .link-hover {
   position: relative;

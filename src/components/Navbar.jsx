@@ -34,18 +34,42 @@ function Navbar() {
   // component previously kept its own duplicate copy of both.
   const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  // Lazy initializers keep the bar correct when the page is restored
+  // mid-scroll (reload / back-navigation) instead of flashing unscrolled.
+  const [isScrolled, setIsScrolled] = useState(() => window.scrollY > 100);
   const menuButtonRef = useRef(null);
   const menuRef = useRef(null);
+  const headerRef = useRef(null);
 
-  // Detect scroll position
+  // Scroll driver. `isScrolled` keeps the original binary threshold (mobile
+  // bar + a11y visibility guards); `--nav-p` (0→1 over the first 100px of
+  // scroll) is written straight to the header's inline style so the desktop
+  // morph rules in index.css interpolate continuously with scroll — no
+  // per-frame React re-render, and scrolling back up reverses the animation.
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100);
+    let raf = 0;
+    const MORPH_SPAN_PX = 100;
+
+    const update = () => {
+      raf = 0;
+      const y = window.scrollY;
+      setIsScrolled(y > 100);
+      headerRef.current?.style.setProperty(
+        '--nav-p',
+        String(Math.min(1, Math.max(0, y / MORPH_SPAN_PX)))
+      );
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const handleScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   // Theme switching: toggle the `dark` class on <html> and persist the
@@ -137,11 +161,22 @@ function Navbar() {
     // height — verified free of overflow/transform ancestors), so the bar stays
     // pinned at every scroll depth. The background appears only once scrolled —
     // the initial hero presentation stays clean.
-    <div className={`relative w-full transition-all duration-300 md:sticky md:top-0 md:z-50 ${isScrolled ? 'pb-2 bg-navbar border-b border-text-muted/25' : 'pb-6'}`}>
+    <div
+      ref={headerRef}
+      className={`nav-root relative w-full transition-all duration-300 md:sticky md:top-0 md:z-50 ${isScrolled ? 'pb-2 bg-navbar border-b border-text-muted/25 md:bg-transparent md:border-b-0' : 'pb-6'}`}
+    >
+      {/* Desktop-only continuous bar background + border: fades in with
+          --nav-p instead of popping at the threshold. Mobile keeps the
+          binary toggle on the root above (md:* classes are no-ops there). */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-navbar border-b border-text-muted/25 pointer-events-none -z-10 hidden md:block"
+        style={{ opacity: 'var(--nav-p, 0)' }}
+      />
       {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger (mobile) right */}
-      <div className={`w-full flex items-center justify-between px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'pt-3' : 'pt-6'}`}>
-        <div className={`font-bold text-text-main leading-tight transition-all duration-300 ${isScrolled ? 'text-xs' : 'text-sm'}`}>
-          <span className={`block transition-all duration-300 ${isScrolled ? 'hidden' : 'block'}`}>
+      <div className={`nav-morph-toprow w-full flex items-center justify-between px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'pt-3' : 'pt-6'}`}>
+        <div className={`nav-morph-brand font-bold text-text-main leading-tight transition-all duration-300 ${isScrolled ? 'text-xs' : 'text-sm'}`}>
+          <span className={`block transition-all duration-300 ${isScrolled ? 'hidden md:block' : 'block'}`}>
             MBSCET <span className="text-primary block text-xs font-medium">Jammu</span>
           </span>
         </div>
@@ -214,18 +249,34 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Logo, centered or left based on scroll */}
-      <div className={`transition-all duration-300 flex ${isScrolled ? 'justify-start px-6 md:px-8 -mt-2' : 'justify-center -mt-2 md:-mt-4'} mb-2 md:mb-4`}>
-        <img 
-          src={logo} 
-          alt="MBSCET Jammu Logo" 
-          className={`object-contain transition-all duration-300 ${isScrolled ? 'h-12 w-12' : 'h-20 w-20 md:h-30 md:w-30'}`} 
-        />
+      {/* Logo: the existing grow/shrink + center→left animation, now driven
+          continuously by scroll on desktop (index.css consumes --nav-p).
+          The invisible flex spacers interpolate the old justify-content
+          swap so the logo glides left instead of teleporting; mobile keeps
+          the original binary classes untouched. The lockup adds the
+          MBSCET + Jammu branding beside the logo in the compact bar. */}
+      <div className={`nav-morph-logo-row transition-all duration-300 flex items-center ${isScrolled ? 'justify-start px-6 md:px-8 -mt-2' : 'justify-center -mt-2 md:-mt-4'} mb-2 md:mb-4`}>
+        <div aria-hidden="true" className="hidden md:block flex-1 nav-morph-spacer-l" />
+        <div className="relative shrink-0">
+          <img
+            src={logo}
+            alt="MBSCET Jammu Logo"
+            className={`nav-morph-logo object-contain transition-all duration-300 ${isScrolled ? 'h-12 w-12' : 'h-20 w-20 md:h-30 md:w-30'}`}
+          />
+          <div aria-hidden="true" className="nav-morph-lockup absolute left-full top-1/2 ml-3 hidden md:block whitespace-nowrap">
+            <span className="block font-bold text-text-main text-sm leading-tight">MBSCET</span>
+            <span className="block text-primary text-xs font-medium leading-tight">Jammu</span>
+          </div>
+        </div>
+        <div aria-hidden="true" className="hidden md:block flex-1" />
       </div>
 
-      {/* Desktop nav pill — display-swapped (not visibility) so the inactive
-          pill stops reserving ~60px of dead space inside the pinned bar. */}
-      <div className={`${isScrolled ? 'hidden' : 'hidden justify-center md:flex'}`}>
+      {/* Desktop nav pill (expanded state) — always mounted on md+. Its band
+          collapses and the pill fades upward as --nav-p → 1, crossfading
+          into the compact pill below instead of display-swapping. The
+          md:invisible endpoint guard keeps it out of tab order / the
+          accessibility tree once fully scrolled (mobile stays hidden). */}
+      <div className={`nav-morph-pill-expanded ${isScrolled ? 'md:invisible' : ''} hidden justify-center md:flex`}>
         <nav className="bg-navbar shadow-soft rounded-full px-8 py-3">
           <ul className="flex gap-8 text-text-main font-medium text-sm">
             {navLinks.map((link) => {
@@ -248,8 +299,11 @@ function Navbar() {
       </div>
 
       {/* Compact nav pill on scroll — renders the FULL navLinks list (the old
-          slice(0, 4) dropped Gallery/News/Placements/Contact from the DOM). */}
-      <div className={`${isScrolled ? 'justify-start px-8 md:flex' : 'hidden'}`}>
+          slice(0, 4) dropped Gallery/News/Placements/Contact from the DOM).
+          Its band grows and it fades/slides in with --nav-p while the
+          expanded pill fades out; md:invisible below the threshold keeps it
+          out of tab order / the accessibility tree (mobile stays hidden). */}
+      <div className={`nav-morph-pill-compact ${isScrolled ? 'justify-start px-8 md:flex' : 'hidden md:flex md:invisible'}`}>
         <nav className="bg-navbar shadow-soft rounded-full px-6 py-2">
           <ul className="flex gap-6 text-text-main font-medium text-xs">
             {navLinks.map((link) => {
@@ -320,7 +374,7 @@ function Navbar() {
       )}
 
       {/* News ticker — sits below nav on all breakpoints */}
-      <div className={`px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'mt-2' : 'mt-4'}`}>
+      <div className={`nav-morph-ticker px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'mt-2' : 'mt-4'}`}>
         <NewsTicker />
       </div>
 
