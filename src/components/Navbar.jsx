@@ -197,12 +197,13 @@ function Navbar() {
           </span>
         </div>
 
-        {/* Desktop controls. At lg+ these fade out while the row collapses;
-            `inert` once scrolled keeps the collapsing copy out of the tab
-            order without a visibility pop. */}
+        {/* Desktop controls. At lg+ these fade out while the row collapses and
+            the inline set in the logo row takes over — `inert` (lg+ only) keeps
+            the collapsing copy out of the tab order. At 768–1023px these stay
+            the live controls, so inert must never engage there. */}
         <div
           className={`nav-morph-toprow-controls hidden md:flex items-center gap-3 ${isScrolled ? 'lg:invisible' : ''}`}
-          inert={isScrolled}
+          inert={isDesktopWide && isScrolled}
         >
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -282,7 +283,7 @@ function Navbar() {
           zero width to land [logo][pill][controls] on one line. */}
       <div className={`nav-morph-logo-row transition-all duration-300 flex items-center ${isScrolled ? 'justify-start px-6 md:px-8 -mt-2' : 'justify-center -mt-2 md:-mt-4'} mb-2 md:mb-4`}>
         <div aria-hidden="true" className="hidden md:block flex-1 nav-morph-spacer-l" />
-        <div className="relative shrink-0">
+        <div className="nav-morph-logo-box relative shrink-0">
           <img
             src={logo}
             alt="MBSCET Jammu Logo"
@@ -306,7 +307,7 @@ function Navbar() {
           className="nav-morph-pill-lg-wrap hidden lg:block min-w-0"
           inert={!isScrolled}
         >
-          <nav className="nav-morph-pill-lg bg-navbar rounded-full shadow-soft" aria-label="Primary">
+          <nav className="nav-morph-pill-lg bg-navbar rounded-full border border-text-muted/15 shadow-soft" aria-label="Primary">
             <ul className="flex items-center font-medium text-text-main whitespace-nowrap">
               {navLinks.map((link) => {
                 const active = location.pathname === link.href;
@@ -391,7 +392,7 @@ function Navbar() {
           md:invisible endpoint guard keeps it out of tab order / the
           accessibility tree once fully scrolled (mobile stays hidden). */}
       <div className={`nav-morph-pill-expanded ${isScrolled ? 'md:invisible' : ''} hidden justify-center md:flex`}>
-        <nav className="bg-navbar shadow-soft rounded-full px-8 py-3">
+        <nav className="bg-navbar shadow-soft rounded-full border border-text-muted/15 px-8 py-3">
           <ul className="flex gap-8 text-text-main font-medium text-sm">
             {navLinks.map((link) => {
               const active = location.pathname === link.href;
@@ -413,14 +414,15 @@ function Navbar() {
       </div>
 
       {/* Compact nav pill on scroll (768–1023px only — at lg+ the inline pill
-          in the logo row takes over, keeping the bar to ONE row). Renders the
-          FULL navLinks list (the old slice(0, 4) dropped
-          Gallery/News/Placements/Contact from the DOM). Its band grows and it
-          fades/slides in with --nav-p while the expanded pill fades out;
-          md:invisible below the threshold keeps it out of tab order / the
-          accessibility tree (mobile stays hidden). */}
-      <div className={`nav-morph-pill-compact ${isScrolled ? 'justify-start px-8 md:flex' : 'hidden md:flex md:invisible'} lg:hidden`}>
-        <nav className="bg-navbar shadow-soft rounded-full px-6 py-2">
+          in the logo row takes over, keeping the bar to ONE row). Always
+          mounted at md+ so the band grows and the pill fades/slides in
+          continuously from --nav-p = 0 (no display swap, no pop-in at the
+          threshold); `inert` below the threshold keeps it out of the tab
+          order. Centered to match the expanded pill and the lg+ bar.
+          Renders the FULL navLinks list (the old slice(0, 4) dropped
+          Gallery/News/Placements/Contact from the DOM). Mobile stays hidden. */}
+      <div className="nav-morph-pill-compact hidden md:flex justify-center lg:hidden" inert={!isScrolled}>
+        <nav className="bg-navbar shadow-soft rounded-full border border-text-muted/15 px-6 py-2">
           <ul className="flex gap-6 text-text-main font-medium text-xs">
             {navLinks.map((link) => {
               const active = location.pathname === link.href;

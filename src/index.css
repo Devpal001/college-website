@@ -321,9 +321,13 @@ p {
    states exactly:
      p = 0 → big centered logo, expanded pill, clean background
      p = 1 → compact bar (768–1023px): logo + MBSCET/Jammu lockup +
-             compact pill on its own row, on bg-navbar with a border
+             centered pill on its own row, on bg-navbar with a border
      p = 1 → compact bar (lg+, see the 1024px block below): ONE row —
-             [logo + lockup] [pill, all 8 links] [theme/Login/Apply]
+             [logo + lockup] [centered pill, all 8 links] [controls]
+   Every animated value on desktop is a continuous function of --nav-p:
+   the pill forms (opacity, scale 0.96 → 1, max-width wipe) and travels
+   into its centered slot via flex-grow interpolation — no display
+   swaps, no justify flips, no threshold pops.
    ───────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
   .nav-root {
@@ -341,7 +345,14 @@ p {
   }
   .nav-morph-logo-row {
     transition: none;
+    /* Spacers consume all free space at every p (grow weight is constant),
+       so justify-content is moot at md+ — hardcoding flex-start removes the
+       binary justify-center → justify-start swap. Horizontal padding is
+       interpolated too (px-0 → px-8), killing the ~32px threshold jump. */
+    justify-content: flex-start;
     margin-top: calc(-1rem + var(--nav-p, 0) * 0.5rem); /* -mt-4 → -mt-2 */
+    padding-left: calc(var(--nav-p, 0) * 2rem); /* px-0 → px-8, continuous */
+    padding-right: calc(var(--nav-p, 0) * 2rem);
   }
   .nav-morph-spacer-l {
     flex-grow: calc(1 - var(--nav-p, 0)); /* 1 → 0: logo glides to the left */
@@ -373,7 +384,9 @@ p {
   }
   .nav-morph-pill-compact > nav {
     opacity: var(--nav-p, 0);
-    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem));
+    /* Forms in place: rises into the band while scaling 0.96 → 1. */
+    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem))
+      scale(calc(0.96 + var(--nav-p, 0) * 0.04));
   }
   .nav-morph-ticker {
     transition: none;
@@ -407,6 +420,17 @@ p {
     margin-bottom: calc(1rem - var(--nav-p, 0) * 0.5rem); /* md:mb-4 → mb-2 */
     padding-top: calc(var(--nav-p, 0) * 0.5rem); /* breathing room when compact */
   }
+  .nav-morph-logo-box {
+    /* The MBSCET/Jammu lockup is absolutely positioned, so flex never sees
+       its 75px overhang (62px text + 12px margin) — without reserving that
+       width the settled row balances around the bare logo and the pill
+       lands ~75px left of visual center (measured gapL=124 vs gapR=199).
+       MARGIN (not padding: left:100% resolves against the padding box, so
+       padding would push the lockup itself 75px away from the logo) grows
+       the real width in with --nav-p, keeping gapL == gapR at every lg
+       width; p=0 stays untouched (margin 0, logo centered as before). */
+    margin-right: calc(var(--nav-p, 0) * 75px);
+  }
   .nav-morph-spacer-c {
     flex-grow: var(--nav-p, 0); /* 0 → 1: pill drifts toward center */
   }
@@ -420,12 +444,14 @@ p {
   }
   .nav-morph-pill-lg {
     font-size: calc(0.875rem - var(--nav-p, 0) * 0.1875rem); /* 14px → 11px */
-    padding: calc(0.75rem - var(--nav-p, 0) * 0.375rem) calc(2rem - var(--nav-p, 0) * 1rem); /* py-3 px-8 → py-1.5 px-4 */
+    padding: calc(0.75rem - var(--nav-p, 0) * 0.375rem) calc(2rem - var(--nav-p, 0) * 1.25rem); /* py-3 px-8 → py-1.5 px-3 */
     opacity: var(--nav-p, 0);
-    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem));
+    /* Physically forms: rises, expands from 0 width, scales 0.96 → 1. */
+    transform: translateY(calc((1 - var(--nav-p, 0)) * 0.75rem))
+      scale(calc(0.96 + var(--nav-p, 0) * 0.04));
   }
   .nav-morph-pill-lg > ul {
-    gap: calc(2rem - var(--nav-p, 0) * 1.25rem); /* gap-8 → gap-3 */
+    gap: calc(2rem - var(--nav-p, 0) * 1.375rem); /* gap-8 → gap-2.5 */
   }
   .nav-morph-controls-lg {
     opacity: var(--nav-p, 0);
