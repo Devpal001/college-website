@@ -437,13 +437,22 @@ p {
   .nav-morph-spacer-c {
     flex-grow: var(--nav-p, 0); /* 0 → 1: pill drifts toward center */
   }
+  /* The wraps clip their band for the width-wipe morph (overflow: hidden), which would
+     also clip the pill's soft shadow into a hard rectangle. Inner padding + equal
+     negative margins give the shadow room to render inside the wrap's box without
+     changing the bar's layout; the animated max-width is widened by the same amount
+     so the endpoint still shows the full pill and shadow. */
   .nav-morph-pill-lg-wrap {
-    max-width: calc(var(--nav-p, 0) * 700px); /* band grows out of zero width */
+    max-width: calc(var(--nav-p, 0) * 740px); /* 700px pill + shadow room */
     overflow: hidden;
+    padding: 1rem 1.25rem;
+    margin: -1rem -1.25rem;
   }
   .nav-morph-controls-lg-wrap {
-    max-width: calc(var(--nav-p, 0) * 480px);
+    max-width: calc(var(--nav-p, 0) * 520px);
     overflow: hidden;
+    padding: 1rem 1.25rem;
+    margin: -1rem -1.25rem;
   }
   .nav-morph-pill-lg {
     font-size: calc(0.875rem - var(--nav-p, 0) * 0.1875rem); /* 14px → 11px */
