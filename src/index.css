@@ -49,8 +49,7 @@
 }
 /* Dark-mode palette — applied by toggling the `dark` class on <html>
    (Navbar + the pre-paint script in index.html). This is the single
-   source of truth for dark colors; shadow tokens stay flattened in
-   dark mode as well (see the html block below). */
+   source of truth for dark colors; the elevation tokens are overridden below. */
 html.dark {
   --color-primary: #4A7FC9;
   --color-primary-dark: #6B9BDB;
@@ -75,24 +74,28 @@ html.dark {
   --color-info-light: #93C5FD;
   --color-info-dark: #3B82F6;
 
-  /* Shadow tokens intentionally not overridden here — they stay flattened
-     exactly as in light mode (see the html block below). */
+  /* Soft UI dark-mode elevation: deeper, more ambient shadows (pure black
+     diffusion instead of slate) so depth stays visible but never harsh on
+     the dark surface. Same token names — components need no dark: variants. */
+
+  --shadow-soft-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-soft-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-soft-xl: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-soft-inset: inset 0 1px 3px rgba(255, 255, 255, 0.06);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 html {
   scroll-behavior: smooth;
   font-size: var(--font-size-base);
-  /* Shadow tokens are intentionally flattened app-wide (design system §1 —
-     minimal visual noise). The Navbar used to force these to `none` via
-     inline styles after mount, which caused a first-paint flash; defining
-     them here keeps the same look with CSS as the single source of truth.
-     To restore depth later, re-enable:
-       --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-       --shadow-soft-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-       --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
-  */
-  --shadow-soft: none;
-  --shadow-soft-lg: none;
-  --shadow-inset: none;
+  /* Soft UI (neomorphic) elevation tokens - the design system soft-shadow utilities (shadow-soft, shadow-soft-lg, shadow-inset) resolve through these, so depth is controlled at the token level and every component inherits it without per-component overrides. Light source is top-left; values are subtle and diffused (no hard edges). Tokens are mode-aware: html.dark overrides them below, so a single shadow-soft class renders correct depth in BOTH modes - no dark:shadow-* duplication anywhere. */
+  --shadow-soft-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 2px 8px rgba(15, 23, 42, 0.08), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-soft-lg: 0 8px 24px rgba(15, 23, 42, 0.1), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-soft-xl: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --shadow-soft-inset: inset 0 1px 3px rgba(255, 255, 255, 0.5);
+  
+  --shadow-inset: inset 0 2px 4px rgba(15, 23, 42, 0.06);
 }
 body {
   background-color: var(--color-bg-soft);
@@ -909,4 +912,28 @@ body {
   .animate-bounce {
     animation: none;
   }
+}
+/* ── Soft UI shadow utilities ─────────────────────────────────────────────
+   Tailwind v4 only generates shadow utilities from `@theme` keys; these
+   classes intentionally resolve through runtime CSS variables instead so
+   the SAME class renders mode-aware depth (light values on :root, deeper
+   ambient values on html.dark). Do not replace with literal shadows.
+   ───────────────────────────────────────────────────────────────────────── */
+@utility shadow-soft-sm {
+  box-shadow: var(--shadow-soft-sm);
+}
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+@utility shadow-soft-lg {
+  box-shadow: var(--shadow-soft-lg);
+}
+@utility shadow-soft-xl {
+  box-shadow: var(--shadow-soft-xl);
+}
+@utility shadow-soft-inset {
+  box-shadow: var(--shadow-soft-inset);
+}
+@utility shadow-inset {
+  box-shadow: var(--shadow-inset);
 }
