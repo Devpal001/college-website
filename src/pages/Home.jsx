@@ -1,17 +1,50 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { GraduationCap, Users, Building2 } from 'lucide-react';
 import campusImg from '../assets/admin_library-1.jpg';
 import PhotoCarousel from '../components/PhotoCarousel';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
+
+// Scroll span over which the hero's parallax response plays out (px). Same
+// continuous-rAF + CSS-variable idiom as the navbar's --nav-p driver.
+const HERO_SPAN_PX = 600;
+
 function Home() {
   const [highlightsRef, highlightsVisible] = useScrollAnimation({ once: true });
   const [ctaRef, ctaVisible] = useScrollAnimation({ once: true });
+
+  // Hero scroll response: writes --hero-p (0 → 1 across the first 600px of
+  // scroll) directly onto the section; CSS interpolates from it. One rAF per
+  // scroll burst, zero React state — mirrors the Navbar driver (§perf).
+  // Skipped on mobile and for reduced-motion users.
+  const heroRef = useRef(null);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const p = Math.min(1, Math.max(0, window.scrollY / HERO_SPAN_PX));
+      el.style.setProperty('--hero-p', String(p));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   return (
     <div>
       {/* Hero Section */}
 <section
-  className="relative container-lg py-24 text-center overflow-hidden fade-in"
+  ref={heroRef}
+  className="hero-scroll relative container-lg py-24 text-center overflow-hidden fade-in"
   style={{
     backgroundImage: `url(${campusImg})`,
     backgroundSize: 'cover',
@@ -20,8 +53,8 @@ function Home() {
   {/* Semi-transparent overlay */}
   <div className="absolute inset-0 bg-bg-soft opacity-70"></div>
 
-  {/* Content sits above the overlay */}
-  <div className="relative z-10">
+  {/* Content sits above the overlay; .hero-scroll-content answers scroll */}
+  <div className="hero-scroll-content relative z-10">
     <h1 className="text-5xl md:text-6xl font-bold text-text-main leading-tight">
       Shape Your Future at <span className="text-primary">MBSCET</span>
     </h1>
@@ -84,13 +117,13 @@ function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-     <section ref={ctaRef} className={`container-lg py-24 text-center bg-bg-soft scroll-animate ${ctaVisible ? 'is-visible' : ''}`}>
-        <h2 className="text-3xl md:text-4xl font-bold text-text-main">Ready to get started?</h2>
-        <p className="text-text-muted mt-3 text-lg mx-auto">Applications for the next intake are open now.</p>
+      {/* CTA Section — heading → text → button reveal in sequence */}
+     <section ref={ctaRef} className="container-lg py-24 text-center bg-bg-soft">
+        <h2 className={`text-3xl md:text-4xl font-bold text-text-main scroll-animate stagger-1 ${ctaVisible ? 'is-visible' : ''}`}>Ready to get started?</h2>
+        <p className={`text-text-muted mt-3 text-lg mx-auto scroll-animate stagger-2 ${ctaVisible ? 'is-visible' : ''}`}>Applications for the next intake are open now.</p>
         <Link
           to="/contact"
-          className="btn-primary inline-block mt-6 px-8 py-4 rounded-soft shadow-soft"
+          className={`btn-primary inline-block mt-6 px-8 py-4 rounded-soft shadow-soft scroll-animate stagger-3 ${ctaVisible ? 'is-visible' : ''}`}
         >
           Contact Admissions
         </Link>

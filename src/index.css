@@ -633,6 +633,42 @@ body {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Hero scroll response (desktop, Home page)
+   Home.jsx writes --hero-p (0 → 1 across the first 600px of scroll) onto the
+   hero section via the same continuous rAF + CSS-variable idiom as the
+   navbar's --nav-p. The background image scales very slightly (1 → 1.06) and
+   the content drifts up and fades — the hero dissolves into the page instead
+   of scrolling away statically. transform/opacity only.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .hero-scroll {
+    /* Stacking context: lets the z-index:-1 pseudo paint above the section's
+       own inline background yet below the overlay + content. */
+    isolation: isolate;
+  }
+  .hero-scroll::before {
+    /* The background lives on the section itself; a pseudo-element replicates
+       it so the section's own box stays fixed while the image transforms.
+       The 1.08 end-scale keeps the image fully covering the box while its
+       position drifts ~2rem — no edge ever shows. */
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center calc(50% + var(--hero-p, 0) * 2rem);
+    transform: scale(calc(1 + var(--hero-p, 0) * 0.08));
+    will-change: transform;
+  }
+  .hero-scroll-content {
+    transform: translateY(calc(var(--hero-p, 0) * -2.5rem));
+    opacity: calc(1 - var(--hero-p, 0) * 0.45);
+    will-change: transform, opacity;
+  }
+}
+
 /* Scroll-triggered animations */
 .scroll-animate {
   opacity: 0;
@@ -835,6 +871,19 @@ body {
 
   .fade-in {
     animation: none;
+  }
+
+  /* Hero scroll response: freeze at the static state, keep content visible. */
+  .hero-scroll::before {
+    transform: none;
+    background-position: center;
+    will-change: auto;
+  }
+
+  .hero-scroll-content {
+    transform: none;
+    opacity: 1;
+    will-change: auto;
   }
 
   .mobile-menu {

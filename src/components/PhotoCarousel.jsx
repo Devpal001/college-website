@@ -5,6 +5,7 @@ import campus2 from '../assets/campus/library_2nd_floor.jpg';
 import campus3 from '../assets/campus/computer_science_advance_lab.jpg';
 import campus4 from '../assets/campus/mechanical_lab1.jpg';
 import campus5 from '../assets/campus/college_playground.jpg';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 const images = [
   { src: campus1, caption: 'College Auditorium' },
@@ -17,6 +18,8 @@ const images = [
 function PhotoCarousel() {
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  // Section reveal: heading first, then the carousel (§staggering).
+  const [sectionRef, sectionVisible] = useScrollAnimation({ once: true });
 
   // Autoplay respects prefers-reduced-motion (design system §21):
   // users who opt out of motion get manual-only navigation.
@@ -36,14 +39,14 @@ function PhotoCarousel() {
   const goNext = () => setCurrent((prev) => (prev + 1) % images.length);
 
   return (
-    <section className="px-6 py-16 bg-bg-soft">
-      <h2 className="text-2xl font-bold text-text-main text-center mb-3">Campus Life</h2>
-      <p className="text-text-muted text-center max-w-xl mx-auto mb-8">
+    <section ref={sectionRef} className="px-6 py-16 bg-bg-soft">
+      <h2 className={`text-2xl font-bold text-text-main text-center mb-3 scroll-animate stagger-1 ${sectionVisible ? 'is-visible' : ''}`}>Campus Life</h2>
+      <p className={`text-text-muted text-center max-w-xl mx-auto mb-8 scroll-animate stagger-2 ${sectionVisible ? 'is-visible' : ''}`}>
         A glimpse into our labs, libraries, and campus facilities
       </p>
 
       <div
-        className="relative max-w-4xl mx-auto rounded-soft-lg shadow-soft-lg overflow-hidden ring-1 ring-black/5"
+        className={`relative max-w-4xl mx-auto rounded-soft-lg shadow-soft-lg overflow-hidden ring-1 ring-black/5 scroll-animate-scale stagger-3 ${sectionVisible ? 'is-visible' : ''}`}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
