@@ -183,7 +183,7 @@ function Navbar() {
           binary toggle on the root above (md:* classes are no-ops there). */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-navbar border-b border-text-muted/25 pointer-events-none -z-10 hidden md:block"
+        className="absolute inset-0 bg-navbar border-b border-text-muted/25 pointer-events-none -z-10 hidden md:block nav-morph-background"
         style={{ opacity: 'var(--nav-p, 0)' }}
       />
       {/* Top row: brand text left, toggle + Apply Now (desktop) / hamburger

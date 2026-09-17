@@ -922,6 +922,26 @@ body {
     animation: none;
   }
 }
+
+/* Navbar scroll morph gradient — premium soft blue/lavender blend */
+.nav-morph-background {
+  background: linear-gradient(
+    105deg,
+    color-mix(in srgb, var(--color-primary-dark) 24%, var(--color-navbar)),
+    color-mix(in srgb, var(--color-primary-light) 20%, var(--color-bg-soft)),
+    color-mix(in srgb, var(--color-primary) 17%, var(--color-navbar))
+  );
+}
+
+html.dark .nav-morph-background {
+  background: linear-gradient(
+    105deg,
+    color-mix(in srgb, var(--color-primary) 30%, var(--color-navbar)),
+    color-mix(in srgb, var(--color-primary-dark) 25%, var(--color-surface)),
+    color-mix(in srgb, var(--color-primary-light) 18%, var(--color-bg-soft))
+  );
+}
+
 /* ── Soft UI shadow utilities ─────────────────────────────────────────────
    Tailwind v4 only generates shadow utilities from `@theme` keys; these
    classes intentionally resolve through runtime CSS variables instead so
