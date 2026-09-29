@@ -1,8 +1,9 @@
 # BRAIN.md — MBSCET College Digital Platform
 
 > **Living system map.** Read this first, then trust the implementation over this file.
-> Production baseline: commit `4269d62`. A UI-polish + login-redirect pass (2026-09-05, see §2)
-> is build-verified locally and pending commit/deploy.
+> Production baseline: commit `4269d62` (2026-09-04). Current HEAD: `97cfbec`
+> (2026-09-17, == origin/main). Uncommitted: `BRAIN.md` doc-only sync (this file).
+> Everything below describes HEAD + the working tree.
 
 ---
 
@@ -36,7 +37,7 @@ AI-powered news discovery + AI chat assistant + in-app notifications.
 - In-app notifications (bell + list page)
 
 ### Production status
-**PROJECT COMPLETE — PRODUCTION VERIFIED** (commit `4269d62`).
+**PRODUCTION DEPLOYED — POST-LAUNCH WORK COMMITTED** (HEAD `97cfbec`, == origin/main).
 - Vercel: `https://college-website-psi-seven.vercel.app` — live
 - Render: `https://college-website-api.onrender.com` — live
 
@@ -66,10 +67,10 @@ Original roadmap: **7 phases. All complete.**
 
 > Phase 8 does not exist in the original plan.
 
-### Post-Launch Polish Pass (2026-09-05)
+### Post-Launch Polish Pass (2026-09-05) — COMMITTED
 
 Desktop visual QA + one auth-redirect fix. 8 frontend files, no new dependencies, no API/DB
-changes. Build-verified (`npm run build` PASS; lint clean for changed files). **Pending commit/deploy.**
+changes. Committed as `188bb6a` + `6bfad3e` + `6f4e179`/`a7fc720`/`f7a327c`.
 
 **UI fixes (CSS classes only — Home, Admissions, About, Departments, Gallery, NewsPage, Footer):**
 - Paragraphs in `text-center` sections that were left-stranded by the global
@@ -91,16 +92,45 @@ changes. Build-verified (`npm run build` PASS; lint clean for changed files). **
 **Login redirect fix (`src/pages/Login.jsx` — auth behavior only):**
 - Email login previously called `navigate('/')` on success, racing the session-aware redirect
   on `/login` (which guessed `role || 'student'`) — users could land on the home page or the
-  wrong dashboard. It now resolves the profile via `getUserProfile` and navigates to
-  `dashboardPathForRole(profile.role)`, matching the portal-ID login contract.
+  wrong dashboard. It now resolves the profile via `getCurrentProfile` (`GET /api/auth/me`)
+  and navigates to `dashboardPathForRole(profile.role)`, matching the institutional login contract.
 - The session-aware redirect on `/login` fires only once the role is known
   (`user && profile`); it no longer guesses a role.
 - Errors still render inline (no error flow navigates anywhere). Auth libs, server routes,
   DB schema, and API contracts untouched.
 
-**Known leftovers:** footer panel is invisible in both themes (`bg-surface` equals the page
-background); 3 pre-existing lint errors (2 in `server/routes/*`, 1 unused `LoadingSpinner`
-import in `AdminDashboard.jsx`).
+**Known leftovers (2026-09-05 note; resolved/changed since — see §2 "Since baseline"
+and §10):** footer panel was invisible in both themes at the time; 3 pre-existing
+lint errors existed at the time (2 in `server/routes/*`, 1 unused `LoadingSpinner`
+import in `AdminDashboard.jsx`). Current lint state: `npm run lint` passes clean at HEAD.
+
+### Since baseline `4269d62` → HEAD `97cfbec` (2026-09-05 → 2026-09-17, committed)
+
+Post-launch hardening + UX. Headline changes (75 files, +8178/−1156):
+
+- **Institutional auth (production path):** `POST /api/auth/login` — institutional ID +
+  password, isolated session client (`createSessionAuthClient`), fail-closed demo gate;
+  migrations `2026_09_05_phase0/phase1/phase2`; `ActivateAccount.jsx` (registry activation);
+  `Login.jsx` is now portal-first (institutional ID+password primary, email secondary,
+  dev-only demo fallback); `/signup` redirects to `/activate`; `Signup.jsx` removed.
+- **Admin provisioning:** `server/routes/users.js` — teacher assignment + registry
+  (`POST /api/users/registry`, reissue), `AdminUsers.jsx` registry UI.
+- **Timetable system:** full CRUD (`server/routes/timetable.js`), `AdminTimetable.jsx`,
+  `TimetableGrid.jsx`; `TeacherDashboard`/`StudentDashboard` integration.
+- **Public-form hardening (2026-09-16, `e3770da`):** `server/routes/public.js`
+  (`POST /api/admissions`, `POST /api/contact`, shared rate limiter), `server/lib/rateLimit.js`,
+  `server/lib/academics.js` (shared attendance/marks rules), `src/lib/sessionStore.js` +
+  `GET /api/auth/me` (single server-side role resolution; browser no longer reads
+  `profiles` directly), `src/lib/format.js` (`getInitials`), `useTabParam` hook,
+  migration `2026_09_16_public_form_tables.sql` (`messages` table), backup tooling
+  (`scripts/export-data|restore-data|verify-data|tables.mjs`, `docs/BACKUP_MIGRATION.md`,
+  `docs/INDUSTRIAL_AUDIT.md`), CI workflow (`.github/workflows/ci.yml`).
+- **Frontend UX (2026-09-12 → 17):** scroll animations (`useScrollAnimation`),
+  responsive navbar morph + soft-UI shadows w/ dark-mode (`Navbar.jsx`, `index.css`),
+  `PortalProfile.jsx` overhaul, `Gallery`/`PhotoCarousel` fixes.
+- **Housekeeping:** `_tmp_check.mjs` (repo-root debug probe, committed — see §10
+  cleanup note), `scripts/audit-rls.mjs` removed, `render.yaml` build/start clarified,
+  `data/` snapshots gitignored (never commit real user data).
 
 ---
 
@@ -116,16 +146,21 @@ Browser (Vercel)            Render Backend              Supabase
  /api/* → same-origin        /api/* served here           │
  (proxy → Render in prod)   (service key bypasses RLS)
 
-Browser DB reads (where RLS permits) ← src/lib/supabase.js (anon key)
+Browser DB reads are the exception, not the rule: only the login session handshake
+uses Supabase JS directly; every piece of application data (including the role via
+`GET /api/auth/me`) comes from the Express API. Direct `profiles` reads were removed
+from `Navbar`/`useAuth`/`Login` (2026-09-16, `e3770da`).
 ```
 
 **Production path:** Browser → `/api/...` on Vercel → Vercel rewrites to Render → Express uses
 Supabase **service-role key** (bypasses RLS).
 
 **Two Supabase clients:**
-1. **Browser** (`src/lib/supabase.js`) — anon key — direct reads only where RLS permits.
+1. **Browser** (`src/lib/supabase.js`) — anon key — session handshake only (all
+   application data comes from `/api`; no component reads `profiles` directly).
 2. **Server** (`server/lib/db.js`) — service-role key — bypasses RLS; server-side only,
-   **never imported by frontend**.
+   **never imported by frontend**. Institutional login additionally uses a
+   request-scoped session client (`createSessionAuthClient`), never the shared DB client.
 
 ---
 
@@ -139,25 +174,30 @@ college-website/
 │   ├── index.css             # Design tokens (:root + html.dark)
 │   ├── components/           # Navbar, AIAssistant, ProtectedRoute,
 │   │                          NewsTicker, NotificationBell, PortalLayout, Gallery
-│   ├── pages/                # Home, Login, Signup, Student/Teacher/Admin Dashboard,
-│   │                          AdminNews, AdminAgent, AdminUsers, News, Notifications
-│   ├── hooks/                # useAuth.jsx (NOTE: .jsx not .js), useScrollAnimation
-│   ├── lib/                  # api.js, auth.js, supabase.js, notificationFormat
+│   ├── pages/                # Home, Login, ActivateAccount, Student/Teacher/Admin Dashboard,
+│   │                          AdminNews, AdminAgent, AdminUsers, AdminTimetable, News, Notifications
+│   ├── hooks/                # useAuth.jsx (NOTE: .jsx not .js), useScrollAnimation, useTabParam
+│   ├── lib/                  # api.js, auth.js, supabase.js, sessionStore.js, format.js, notificationFormat.js
 │   └── assets/
 ├── server/
 │   ├── index.js              # Entry — routers, CORS, errors, scheduler
 │   ├── package.json
 │   ├── middleware/auth.js    # authRequired, requireRole, role scoping
 │   ├── lib/                  # db.js (svc-role), ai.js, agentEngine.js,
-│   │                          │  scheduler.js, httpError.js, validate.js
+│   │                          │  scheduler.js, httpError.js, validate.js, rateLimit.js,
+│   │                          │  academics.js, password.js, activation.js
 │   └── routes/               # academics, auth, profile, records, students,
-│                              # teachers, news, agent, notifications,
-│                              # assistant, users
+│                              # teachers, timetable, news, agent, notifications,
+│                              # assistant, users, public
 ├── supabase/
 │   ├── schema.sql            # Full schema + RLS + seed data
-│   └── migrations/           # H-1 RLS fix
-├── scripts/
-│   └── seed-demo.mjs         # Idempotent seed (identities, timetable, news sources)
+│   └── migrations/           # Phase 0/1/2 identity + H-1 RLS fix + 2026-09-16 public-form tables
+├── scripts/                  # seed-demo.mjs, backup/restore/verify-data, test-*.mjs suites,
+│                             # verify-timetable-smoke.mjs, probe-*.mjs, status.mjs
+├── docs/
+│   ├── BACKUP_MIGRATION.md   # Backup/migration/portability guide (2026-09-16)
+│   └── INDUSTRIAL_AUDIT.md   # Industrial refactor audit (2026-09-16)
+├── .github/workflows/ci.yml # CI: lint + build + auth-gate regression (push/PR to main)
 ├── public/
 ├── vercel.json               # Rewrites /api → Render; security + cache headers
 ├── render.yaml               # Blueprint: Node, health check, CORS
@@ -197,13 +237,24 @@ college-website/
 
 ## 6. Feature Map
 
-**Authentication** — Prod: email/password via Supabase GoTrue; demo portal-ID login dev-only (fail-closed). Frontend: `src/lib/auth.js`, `src/hooks/useAuth.jsx`, `ProtectedRoute.jsx`. Backend: `server/routes/auth.js`. Middleware: `server/middleware/auth.js`. DB: `profiles` (role). Verified ✅ all 3 roles login.
+**Authentication** — Prod: institutional ID+password (`POST /api/auth/login`) primary;
+email/password secondary; demo portal-ID login dev-only (fail-closed). Frontend:
+`src/lib/auth.js`, `src/hooks/useAuth.jsx`, `ProtectedRoute.jsx`, role from
+`GET /api/auth/me` (`sessionStore.js`). Backend: `server/routes/auth.js`. Middleware:
+`server/middleware/auth.js`. DB: `profiles` (role). Verified ✅ all 3 roles login.
 
 **Student Portal** — `StudentDashboard.jsx`; `students.js`, `records.js`; DB: `students`, `enrollments`, `attendance`, `marks`, `timetable`, `subjects`. Verified ✅ dashboard + tabs.
 
 **Teacher Portal** — `TeacherDashboard.jsx`; `teachers.js`, `records.js`; DB: `teachers`, `teacher_subjects`, `attendance_sessions`, `marks`. Verified ✅ dashboard + marks-trigger.
 
-**Admin Portal** — `AdminDashboard.jsx`, `AdminNews.jsx`, `AdminAgent.jsx`, `AdminUsers.jsx`; `users.js`, `news.js`, `agent.js`. Verified ✅ news publish + agent monitoring.
+**Admin Portal** — `AdminDashboard.jsx`, `AdminNews.jsx`, `AdminAgent.jsx`, `AdminUsers.jsx`
+(registry + provisioning UI), `AdminTimetable.jsx` (full timetable CRUD); `users.js`,
+`timetable.js`, `news.js`, `agent.js`. Verified ✅ news publish + agent monitoring.
+
+**Public forms (hardened 2026-09-16)** — Admissions/Contact pages POST to
+`POST /api/admissions` + `POST /api/contact` (`server/routes/public.js`, shared rate
+limiter `server/lib/rateLimit.js`). Browser no longer writes `admissions`/`messages`
+directly; `messages` table captured in migration `2026_09_16_public_form_tables.sql`.
 
 **News** — `NewsPage.jsx` (public), `AdminNews.jsx` (admin); `news.js`; DB: `news_items`, `news_sources`. Feed `GET /api/news` anon-allowed. 5 live items. Verified ✅.
 
@@ -219,21 +270,29 @@ college-website/
 
 ### Authentication (production)
 ```text
-User → /login → email/password form → signInWithEmail() → Supabase GoTrue issues JWT
- → useAuth.jsx sets session + profile → ProtectedRoute → correct dashboard
- → Navbar/PortalLayout use session+role → logout clears session
+User → /login → portal form (institutional ID + password) → POST /api/auth/login
+ → Supabase GoTrue issues session → useAuth.jsx sets session + profile (via GET /api/auth/me)
+ → ProtectedRoute → correct dashboard → Navbar/PortalLayout use session+role → logout clears session
+
+Legacy secondary flow: email/password form → signInWithEmail() → GoTrue JWT (same
+session/profile routing afterwards). Dev-only: password-less demo login
+(signInWithPortalId), fail-closed in production.
 ```
 
-Post-login routing is deterministic: `Login` resolves the profile, then navigates to
+Post-login routing is deterministic: `Login` resolves the profile (portal login returns
+it from the API; email login probes `GET /api/auth/me`), then navigates to
 `dashboardPathForRole(profile.role)` (fixed 2026-09-05 — see §2 polish pass).
 
 ### Account provisioning model & dashboard error states (2026-09-05)
 
-- Self-signup (`/signup` → `supabase.auth.signUp`) creates **auth user + `profiles` row
-  only** (`handle_new_user()` trigger; role defaults to `'student'`). It never creates a
-  `students` academic record.
-- Academic records (`students` / `teachers` rows) are provisioned by ADMINISTRATION
-  (`POST /api/users/admin`: auth user → profile → role row) or by the dev seed script.
+### Account provisioning model & dashboard error states (2026-09-05; self-signup retired — Decision 3)
+
+- Public self-signup is RETIRED: `/signup` redirects to `/activate`
+  (`src/pages/ActivateAccount.jsx`); `Signup.jsx` was removed. A person can only
+  activate an identity the administration has already registered.
+- Administrative provisioning paths: `POST /api/users/admin` (complete active account:
+  auth user → profile → role row) and `POST /api/users/registry` (pending registry
+  account + one-time activation code). Dev seed script also provisions records.
 - Single identifier chain: `auth.users.id === profiles.id === students.profile_id /
   teachers.profile_id`. There is no second identity system and no identifier mismatch.
 - `getStudentForAuth` / `getTeacherForAuth` (`middleware/auth.js`) distinguish outcomes:
@@ -478,7 +537,7 @@ git push origin main
 
 ---
 
-**Commit:** `4269d62` (HEAD == origin/main) · Working tree: clean · Pushed ✅
+**Commit:** `97cfbec` (HEAD == origin/main) · Working tree: 1 modified file (`BRAIN.md` doc-only, uncommitted) · Pushed ✅
 
 | System | Status |
 |--------|--------|
@@ -494,14 +553,15 @@ git push origin main
 | AI News Agent | ✅ Verified (scheduler firing, 25 items generated) |
 | CORS | ✅ Allow-list active, Vercel domain allowed |
 | Security headers | ✅ Active on Vercel |
-| Git | ✅ `4269d62` pushed, `HEAD == origin/main` |
+| Git | ✅ `97cfbec` pushed, `HEAD == origin/main` |
 
 **Known limitations (non-blocking):**
 - Email notifications: NOT WIRED (optional future feature)
 - AI uses keyword heuristics when no `OPENAI_API_KEY` (optional)
 - 20 pending news items await manual review (content, not a bug)
-- Self-registered accounts (`/signup`) can log in but see a "record not linked" dashboard
-  state until administration provisions their academic record (by design — see §7)
+- Public self-signup retired: `/signup` redirects to `/activate`. Admin-provisioned
+  accounts whose academic record is not linked yet see an honest "record not linked"
+  dashboard state (by design — see §7)
 
 ---
 
