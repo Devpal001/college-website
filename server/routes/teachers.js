@@ -98,11 +98,16 @@ meRouter.get('/dashboard', asyncHandler(async (req, res) => {
   const teacher = await getTeacherForAuth(req, res);
   if (!teacher) return;
 
+  // Attendance sessions marked for this teacher (Sessions counter).
+  // Folded into the main Promise.all below (head-count query = one extra
+  // round trip on the shared connection), so the dashboard resolves in a
+  // single parallel batch instead of batch + 1 sequential query.
   const [
     { data: subjects },
     { data: schedule },
     { data: notifications },
     { count: unreadNotifications },
+    { count: sessionsCount },
   ] = await Promise.all([
     supabase
       .from('teacher_subjects')
@@ -127,15 +132,11 @@ meRouter.get('/dashboard', asyncHandler(async (req, res) => {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', req.user.id)
       .eq('read', false),
+    supabase
+      .from('attendance_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', teacher.id),
   ]);
-
-  // Attendance sessions marked for this teacher (Sessions counter).
-  // Computed via the shared /me/sessions query semantics (teacher-scoped),
-  // so the dashboard counter always reflects the authoritative database.
-  const { count: sessionsCount } = await supabase
-    .from('attendance_sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('teacher_id', teacher.id);
 
   res.json({
     profile: req.profile,

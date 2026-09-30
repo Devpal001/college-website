@@ -39,6 +39,9 @@ export default function Notifications() {
 
       const unreadOnly = filter === 'unread' ? 'true' : 'false';
 
+      // One list request serves the table, the badge, and the "Read" filter:
+      // ask for enough rows to cover the client-side "Read" filter instead of
+      // firing a second request for preferences/unread-count in parallel.
       const response = await api.get(
         `/notifications/me?unreadOnly=${unreadOnly}&limit=50`
       );
@@ -52,6 +55,7 @@ export default function Notifications() {
       }
 
       setNotifications(data);
+      setUnreadCount(data.filter((notification) => !notification.read).length);
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError(err?.message || 'Failed to load notifications');
@@ -70,23 +74,15 @@ export default function Notifications() {
     }
   }, []);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await api.get('/notifications/me/unread-count');
-      setUnreadCount(Number(response?.count) || 0);
-    } catch (err) {
-      console.error('Error fetching unread count:', err);
-    }
-  }, []);
-
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Preferences are only needed when the user opens the preferences dialog —
+  // not on every page visit. Lazy-load them on first open.
   useEffect(() => {
-    fetchPreferences();
-    fetchUnreadCount();
-  }, [fetchPreferences, fetchUnreadCount]);
+    if (showPreferences && !preferences) fetchPreferences();
+  }, [showPreferences, preferences, fetchPreferences]);
 
   const markAsRead = async (notificationId) => {
     try {

@@ -51,7 +51,16 @@ function PhotoCarousel() {
         onMouseLeave={() => setIsPaused(false)}
       >
         <div className="relative h-90">
-          {images.map((img, index) => (
+          {images.map((img, index) => {
+            // Only the active slide (plus neighbours for instant prev/next)
+            // renders an <img>: off-screen slides keep their caption layer but
+            // skip the network request until they are about to show.
+            const distance = Math.min(
+              Math.abs(index - current),
+              images.length - Math.abs(index - current)
+            );
+            const eager = distance <= 1;
+            return (
             <div
               key={index}
               aria-hidden={index !== current}
@@ -59,12 +68,21 @@ function PhotoCarousel() {
                 index === current ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
-              <img src={img.src} alt={img.caption} className="w-full h-full object-cover" />
+              {eager ? (
+                <img
+                  src={img.src}
+                  alt={img.caption}
+                  className="w-full h-full object-cover"
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                />
+              ) : null}
               <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent text-white text-sm px-5 py-4">
                 {img.caption}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Prev/Next buttons */}

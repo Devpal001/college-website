@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -7,7 +7,21 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import ComingSoon from './pages/ComingSoon';
 import Gallery from './components/Gallery';
 import ProtectedRoute from './components/ProtectedRoute';
-import AIAssistant from './components/AIAssistant';
+import LoadingSpinner from './components/LoadingSpinner';
+
+// AIAssistant is mounted on EVERY route but used on almost none: it must not
+// sit in the initial bundle. Lazy-loading it keeps VendorChart-sized chat UI
+// out of first paint; the floating button is part of the lazy chunk itself.
+const AIAssistant = lazy(() => import('./components/AIAssistant'));
+
+// Minimal fallback while a lazy chunk loads — keeps layout stable.
+function RouteFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center">
+      <LoadingSpinner />
+    </div>
+  );
+}
 
 // Route-level lazy loading (React 19 `lazy()` + React Router v7): keeps the
 // initial public-page chunk small and loads dashboards/admin/news on demand.
@@ -33,6 +47,12 @@ function App() {
   return (
     <>
       <Navbar />
+      {/* One Suspense boundary covers every lazy route below. Without it a
+          lazy() component suspends with no boundary and React throws at
+          runtime ("A component suspended while responding to synchronous
+          input"). A single top-level boundary is enough — per-route
+          boundaries would only add fallback churn. */}
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -145,7 +165,12 @@ function App() {
 
         <Route path="*" element={<ComingSoon />} />
       </Routes>
-      <AIAssistant />
+      </Suspense>
+      {/* Assistant loads on demand; the Suspense wrapper above covers it so
+          first paint never waits for the chat chunk. */}
+      <Suspense fallback={null}>
+        <AIAssistant />
+      </Suspense>
       <Footer />
     </>
   );

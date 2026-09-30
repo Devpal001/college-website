@@ -18,9 +18,12 @@ export default function NotificationBell() {
     try {
       const response = await api.get('/notifications/me?limit=5');
       setNotifications(response.data || []);
+      // The list response carries the same rows the unread-count endpoint
+      // would count — derive the badge locally instead of a second request.
+      setUnreadCount((response.data || []).filter((n) => !n.read).length);
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -36,7 +39,6 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    fetchUnreadCount();
 
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
