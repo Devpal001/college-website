@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSupabase, hasStoredSession } from './supabase';
 
 // ============================================
 // PHASE 3 API CLIENT
@@ -46,16 +46,29 @@ function buildUrl(path) {
   return `${API_BASE}/api${path}`;
 }
 
-async function apiFetch(path, options = {}) {
+/**
+ * Current Supabase JWT, or null while signed out.
+ *
+ * A visitor with no stored session never triggers the Supabase chunk
+ * download (see lib/supabase.js) — public requests stay headerless, which is
+ * also why this reads localStorage first instead of importing the client.
+ */
+async function currentAccessToken() {
+  if (!hasStoredSession()) return null;
+
+  const supabase = await getSupabase();
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
+
+async function apiFetch(path, options = {}) {
+  const accessToken = await currentAccessToken();
 
   const headers = {
     'Content-Type': 'application/json',
-    ...(session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : {}),
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...(options.headers || {}),
   };
 

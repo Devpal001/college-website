@@ -17,14 +17,15 @@
 // Transport: plain module state + `useSyncExternalStore` (React 19,
 // no context provider needed — Navbar renders outside any provider).
 // ============================================================
-import { supabase } from './supabase';
 import { api } from './api';
+import { getSupabase, hasStoredSession } from './supabase';
 
 const initialState = { session: null, user: null, profile: null, loading: true };
 
 let state = initialState;
 const listeners = new Set();
 let started = false;
+let authAttached = null;
 let resolveTicket = 0;
 
 function setState(patch) {
@@ -70,33 +71,76 @@ async function resolveProfile(session) {
  * Starts tracking the Supabase session exactly once per page load.
  * Idempotent: safe to call from every component that uses useAuth().
  */
+/**
+ * Loads the Supabase client and starts tracking its session — exactly once.
+ * Until this runs the store reports "signed out", which is the correct state
+ * for a visitor who has never signed in (see lib/supabase.js: the SDK is a
+ * lazily loaded chunk, so attaching means downloading it).
+ */
+function attachAuthTracking() {
+  if (!authAttached) {
+    authAttached = getSupabase()
+      .then((supabase) => {
+        supabase.auth
+          .getSession()
+          .then(({ data: { session } }) => {
+            setState({ session, user: session?.user || null });
+            return resolveProfile(session);
+          })
+          .catch((error) => {
+            console.warn('[session] could not read the stored session:', error?.message || error);
+            setState({ profile: null, loading: false });
+          });
+
+        supabase.auth.onAuthStateChange((_event, session) => {
+          // Loading stays true while the new session's role is fetched, so
+          // ProtectedRoute keeps showing the spinner instead of bouncing a
+          // freshly signed-in user to /unauthorized.
+          setState({
+            session,
+            user: session?.user || null,
+            loading: Boolean(session?.user),
+            profile: session?.user ? state.profile : null,
+          });
+          void resolveProfile(session);
+        });
+      })
+      .catch((error) => {
+        console.warn('[session] could not load the auth client:', error?.message || error);
+        authAttached = null;
+        setState({ profile: null, loading: false });
+      });
+  }
+  return authAttached;
+}
+
+/**
+ * Starts tracking the Supabase session exactly once per page load.
+ * Idempotent: safe to call from every component that uses useAuth().
+ */
 export function startSessionTracking() {
   if (started) return;
   started = true;
 
-  supabase.auth
-    .getSession()
-    .then(({ data: { session } }) => {
-      setState({ session, user: session?.user || null });
-      return resolveProfile(session);
-    })
-    .catch((error) => {
-      console.warn('[session] could not read the stored session:', error?.message || error);
-      setState({ profile: null, loading: false });
-    });
+  // Nobody has ever signed in on this device: resolve the store as
+  // "signed out" immediately and leave the auth chunk unloaded until the
+  // visitor actually authenticates.
+  if (!hasStoredSession()) {
+    setState({ session: null, user: null, profile: null, loading: false });
+    return;
+  }
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    // Loading stays true while the new session's role is fetched, so
-    // ProtectedRoute keeps showing the spinner instead of bouncing a
-    // freshly signed-in user to /unauthorized.
-    setState({
-      session,
-      user: session?.user || null,
-      loading: Boolean(session?.user),
-      profile: session?.user ? state.profile : null,
-    });
-    void resolveProfile(session);
-  });
+  void attachAuthTracking();
+}
+
+/**
+ * Called by lib/auth.js before a sign-in / sign-out action so the SIGNED_IN /
+ * SIGNED_OUT event it produces is guaranteed to reach this store — that event
+ * is what updates the Navbar and unlocks ProtectedRoute.
+ */
+export function ensureAuthTracking() {
+  started = true;
+  return attachAuthTracking();
 }
 
 /**

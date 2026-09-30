@@ -1,11 +1,14 @@
-// Re-use the single shared Supabase client from lib/supabase.js.
-// Creating a second client with the same storage key caused the
-// "Multiple GoTrueClient instances detected" console warning and
-// could make auth-state updates unreliable.
-import { supabase } from './supabase';
+// Re-use the single shared Supabase client through the loader in
+// lib/supabase.js. Creating a second client with the same storage key caused
+// the "Multiple GoTrueClient instances detected" console warning and could
+// make auth-state updates unreliable; going through the loader also keeps the
+// SDK out of the initial bundle for signed-out visitors. Every helper below
+// awaits getSupabase() instead of holding a module-level reference, and calls
+// ensureAuthTracking() first so the session store is subscribed BEFORE the
+// SIGNED_IN / SIGNED_OUT event produced by the action it is about to run.
+import { getSupabase } from './supabase';
+import { ensureAuthTracking } from './sessionStore';
 import { api } from './api';
-
-export { supabase };
 
 // ============================================
 // AUTHENTICATION HELPERS
@@ -35,6 +38,8 @@ export async function signInWithPortalId(portalId, role) {
   });
 
   // Maintain a real Supabase session for the remainder of the app session.
+  await ensureAuthTracking();
+  const supabase = await getSupabase();
   const { error } = await supabase.auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -58,6 +63,8 @@ export function dashboardPathForRole(role) {
  * Sign in with email and password
  */
 export async function signInWithEmail(email, password) {
+  await ensureAuthTracking();
+  const supabase = await getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password
@@ -95,6 +102,8 @@ export async function signInWithInstitutionalId(institutionalId, password, porta
     portal,
   });
 
+  await ensureAuthTracking();
+  const supabase = await getSupabase();
   const { error } = await supabase.auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -108,6 +117,8 @@ export async function signInWithInstitutionalId(institutionalId, password, porta
  * Sign out current user
  */
 export async function signOut() {
+  await ensureAuthTracking();
+  const supabase = await getSupabase();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
@@ -116,6 +127,7 @@ export async function signOut() {
  * Get current session
  */
 export async function getSession() {
+  const supabase = await getSupabase();
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error) throw error;
   return session;

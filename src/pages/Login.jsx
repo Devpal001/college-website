@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { signInWithPortalId, signInWithInstitutionalId, signInWithEmail, getCurrentProfile, dashboardPathForRole } from '../lib/auth';
+import { getSupabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import {
   GraduationCap,
@@ -88,6 +89,16 @@ export default function PortalLogin() {
   // Legacy email/password fields (kept so the old flow still works).
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // The Supabase client is a lazily loaded chunk (see lib/supabase.js) so
+  // signed-out visitors never download it. Start fetching it as soon as the
+  // login screen is open, so the credential request is not slowed down by it.
+  useEffect(() => {
+    getSupabase().catch(() => {
+      // Surfaced by the sign-in handler itself.
+    });
+  }, []);
+
+
 
   // If an auth session already exists, go straight to the right dashboard.
   // Redirect only once the role is KNOWN (profile loaded): while the profile

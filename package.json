@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
-    "build": "vite build",
+    "build": "node scripts/build.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
@@ -17,6 +17,7 @@
     "verify:data": "node scripts/verify-data.mjs",
     "test:libs": "node scripts/test-shared-libs.mjs",
     "test:forms": "node scripts/test-public-forms.mjs",
+    "test:auth-bundle": "node scripts/test-auth-bundle-split.mjs",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {

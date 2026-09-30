@@ -34,6 +34,9 @@ jobs:
       - name: Auth client isolation regression
         run: node scripts/test-auth-client-isolation.mjs
 
+      - name: Auth chunk split regression (keeps the Supabase SDK out of the entry chunk)
+        run: node scripts/test-auth-bundle-split.mjs
+
       - name: Auth gate regression (requires Supabase connection)
         if: env.SUPABASE_URL != ''
         env:
