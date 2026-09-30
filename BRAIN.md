@@ -537,7 +537,7 @@ git push origin main
 
 ---
 
-**Commit:** `97cfbec` (HEAD == origin/main) · Working tree: 1 modified file (`BRAIN.md` doc-only, uncommitted) · Pushed ✅
+**Commit:** `62faadc` (HEAD == origin/main) · Working tree: 7 modified files (perf audit, uncommitted — see §21) · Pushed ✅
 
 | System | Status |
 |--------|--------|
@@ -553,7 +553,7 @@ git push origin main
 | AI News Agent | ✅ Verified (scheduler firing, 25 items generated) |
 | CORS | ✅ Allow-list active, Vercel domain allowed |
 | Security headers | ✅ Active on Vercel |
-| Git | ✅ `97cfbec` pushed, `HEAD == origin/main` |
+| Git | ✅ `62faadc` pushed, `HEAD == origin/main` |
 
 **Known limitations (non-blocking):**
 - Email notifications: NOT WIRED (optional future feature)
@@ -676,3 +676,182 @@ auth model, database map, API map, security model, deployment, env variables, op
 workflows, change impact, testing, learning roadmap, glossary, agent rules.
 
 **Deleted:** None.
+
+---
+
+## 21. Performance & Bundle (2026-09-30 — measured, not guessed)
+
+### How to measure this repo (a wrong baseline is worse than none)
+
+Two traps were hit and closed while producing the numbers below:
+
+1. **`NODE_ENV` pollution.** `vite build` decides production mode
+   (minification, `react/jsx-runtime` vs `jsx-dev-runtime`,
+   `import.meta.env.PROD`) from `process.env.NODE_ENV` *while it is still
+   reading env files* — i.e. before `vite.config.js` runs, so setting it
+   there has no effect. A local `.env` with `NODE_ENV=development` therefore
+   produced a **development** bundle: `index-*` = **675.7 KB / gzip 188.1 KB
+   with `jsxDEV` present**, versus **476.5 KB / gzip 135.5 KB** built the same
+   way with `NODE_ENV=production`. Fix: `npm run build` → `scripts/build.mjs`,
+   which pins `NODE_ENV=production` in the parent process before Vite starts
+   (`vite.config.js` warns if a build is ever invoked another way).
+2. **A build without `VITE_SUPABASE_URL` is not a baseline.** With no `.env`,
+   `src/lib/supabaseClient.js` throws at import, the import graph collapses,
+   Supabase tree-shakes out and the entry chunk measured **229 KB** — an
+   artifact, not a result. Every number below comes from a clean
+   `git worktree` of HEAD built with the real `.env` and `NODE_ENV=production`.
+
+### Dependency weight (production build of HEAD, per-package probe)
+
+Total emitted JS ≈ **662 KB raw / 192 KB gzip**. Measured by rebuilding HEAD
+with `manualChunks` grouping `node_modules` per package.
+
+| Package | Raw | Gzip | Needed in the browser? |
+|---|---|---|---|
+| `react-dom` | 177.5 KB | 55.1 KB | yes |
+| `@supabase/auth-js` | 94.2 KB | 21.9 KB | yes — sign-in, session, sign-out |
+| `react-router` | 38.2 KB | 13.6 KB | yes |
+| `@supabase/realtime-js` | 29.8 KB | 9.2 KB | **no** |
+| `@supabase/storage-js` | 26.2 KB | 6.6 KB | **no** |
+| `@supabase/phoenix` | 25.0 KB | 7.5 KB | **no** |
+| `lucide-react` | 24.8 KB | — | yes (already tree-shaken per icon) |
+| `@supabase/postgrest-js` | 14.8 KB | — | **no** — reads go through `/api` |
+| `@supabase/supabase-js` | 10.3 KB | — | wrapper |
+| `@supabase/functions-js` | 2.8 KB | — | **no** |
+
+The whole Supabase client is **203 KB raw / 52 KB gzip** and the browser only
+ever calls `supabase.auth.*` — `src/` has zero `supabase.from()` /
+`.storage` / `.channel` / `.functions` calls (all data goes through the
+Express API, and the service-role client lives in `server/lib/`, where bundle
+size does not apply).
+
+### Baseline → after (production build, `dist/assets`)
+
+| Metric | HEAD `62faadc` | Working tree | Δ |
+|---|---|---|---|
+| Initial entry `index-*` — signed-out visitor | 476.5 KB / gzip 135.5 | **267.2 KB / gzip 82.3** | **−209 KB raw, −53 KB gzip (−39 %)** |
+| `supabaseClient-*` chunk | inside the entry chunk | 203.3 KB / gzip 52.0, on demand | off first paint |
+| Signed-in first load (entry + auth chunk, parallel) | 476.5 / 135.5 | 470.5 / gzip 134.3 (sum) | ≈ 0 |
+| Total JS emitted | 662.5 KB / 192.2 | 663.7 KB / 194.2 | +1.2 KB gzip (bytes deferred, not deleted) |
+| CSS | 61.9 KB / 11.5 | 61.9 KB / 11.5 | 0 |
+
+Route-level `lazy()` was already working (30+ route chunks; dashboards/admin
+5–26 KB each). The initial chunk was the problem, and it was ~80 % vendors —
+which is why vendor splitting was tried, reverted (see bottleneck #3) and the
+win came from deferring the auth chunk instead.
+
+### Bottlenecks found (ranked by measured impact)
+
+1. **Dev-mode build leak (FIXED).** `NODE_ENV=development` in local `.env`
+   (and `NODE_ENV: test` exported by `.github/workflows/ci.yml`) silently made
+   `vite build` emit an unminified development bundle — 675.7 KB / gzip
+   188.1 KB entry chunk with `jsxDEV` instead of 476.5 KB / gzip 135.5 KB.
+   Fixed in code, not by asking operators to edit `.env`: `npm run build` now
+   runs `scripts/build.mjs`, which sets `NODE_ENV=production` in the parent
+   process before Vite reads env files; `vite.config.js` warns if a build is
+   started any other way; `.env.example` documents the trap.
+2. **Supabase SDK on the critical path (FIXED — the largest code-side win).**
+   The client is 203 KB raw / gzip 52 and ~75 % of it (`realtime-js`,
+   `phoenix`, `storage-js`, `postgrest-js`, `functions-js`) is never used in
+   the browser, because `createClient()` constructs every sub-client and the
+   entry chunk inherited all of it for every visitor. Split into a tiny
+   loader `src/lib/supabase.js` (`getSupabase()`, `hasStoredSession()`,
+   `AUTH_STORAGE_KEY`) and the heavy `src/lib/supabaseClient.js`, which Vite
+   now emits as a lazy chunk:
+   - signed-out visitor → the chunk is never requested (−209 KB raw /
+     −53 KB gzip on first load, −39 %);
+   - returning signed-in visitor → `hasStoredSession()` reads the SDK's own
+     persistence key (`sb-<project-ref>-auth-token`) and the chunk loads in
+     parallel with boot, so behaviour is unchanged;
+   - signing in → `Login.jsx` prefetches it on mount, and `lib/auth.js`
+     awaits `ensureAuthTracking()` *before* `setSession` /
+     `signInWithPassword` so the session store is subscribed before the
+     SIGNED_IN / SIGNED_OUT event it produces.
+   No dependency was added: `@supabase/supabase-js` remains the only auth
+   package. (Talking to `@supabase/auth-js` directly would drop the remaining
+   ~109 KB raw of unused sub-clients, but it means depending on a transitive
+   package on the security-critical path — deliberately not done.)
+3. **No vendor splitting (attempted, REVERTED).** `manualChunks` on
+   `node_modules`: Vite 8/Rolldown emitted `vendor-react` 378–387 KB
+   (LARGER than the react code inside the original index chunk — chunking
+   overhead + lost cross-chunk minification) and total JS stayed flat.
+   Net effect negative-to-neutral, so the config was restored. Revisit only
+   with a production-mode build + HTTP cache-lifetime analysis.
+4. **Missing `<Suspense>` boundary (correctness).** `App.jsx` used 17×
+   `lazy()` with zero `Suspense` — a lazy route suspends with no boundary
+   and React throws. Fixed: one top-level boundary + `RouteFallback`.
+5. **AIAssistant in initial bundle.** Eager on every route, used on almost
+   none. Fixed: `lazy()` + `Suspense fallback={null}` → own 6 KB chunk.
+6. **`NotificationBell` double request.** Mounted on every route for every
+   logged-in user: list + unread-count back-to-back on mount. Fixed: derive
+   badge from the list response; 30 s poll keeps the cheap count endpoint.
+7. **`/notifications` page triple request.** List + preferences +
+   unread-count in parallel on every visit. Fixed: badge derived from list;
+   preferences lazy-loaded on first dialog open (3→1 initial requests).
+8. **Carousel loads 5× ~200–290 KB JPGs eagerly.** `PhotoCarousel` rendered
+   all `<img>` on mount (~1 MB). Fixed: only active ±1 slides render `<img>`
+   (`loading`/`decoding="async"`); rest render caption layers only.
+9. **Teacher dashboard sequential query.** `sessionsCount` awaited after the
+   main `Promise.all` (batch + 1 round trip). Fixed: folded into the batch.
+10. **Student dashboard serial round trips.** Department → enrollment →
+   timetable + notifications → unread, then announcements/events sequential.
+   NOT changed (timetable depends on resolved section; the notification
+   `Promise.all` fires before role check — fail-closed but wasteful for
+   non-students). Deferred, see below.
+
+### Changes made (this working tree, uncommitted)
+
+- `scripts/build.mjs` (new) + `package.json` — `build` pins
+  `NODE_ENV=production` before Vite starts.
+- `vite.config.js` — warns on a non-production `vite build`; vendor split
+  attempted, measured, REVERTED (no win).
+- `src/lib/supabase.js` — now a loader only: `getSupabase()`,
+  `hasStoredSession()`, `AUTH_STORAGE_KEY`.
+- `src/lib/supabaseClient.js` (new) — `createClient()`; heavy, lazy chunk.
+- `src/lib/api.js` — `currentAccessToken()` never loads the auth chunk for
+  signed-out requests.
+- `src/lib/sessionStore.js` — signed-out fast path + `ensureAuthTracking()`.
+- `src/lib/auth.js` — awaits client + tracking before every auth action.
+- `src/pages/Login.jsx` — prefetches the auth chunk on mount.
+- `src/App.jsx` — lazy `AIAssistant`, top-level `Suspense` + fallback.
+- `src/components/NotificationBell.jsx` — single initial request.
+- `src/pages/Notifications.jsx` — 3→1 initial requests, lazy prefs.
+- `src/components/PhotoCarousel.jsx` — active ±1 `<img>` only.
+- `server/routes/teachers.js` — sessions count folded into `Promise.all`.
+- `.env.example` — `NODE_ENV=development` commented + warning.
+
+### Remaining / deferred (deliberately NOT done)
+
+- Student-dashboard query restructure (serial + pre-auth fan-out). Needs an
+  owner-reviewed rewrite; behaviour-preserving but fiddly.
+- `authRequired` `profiles.select('*')` + `getStudent/TeacherForAuth`
+  `select('*')` — could project columns, saves bytes/row, not round trips.
+- `records.js` attendance background fan-out: per-student attendance pull +
+  per-student subject lookup inside `setImmediate` (N+1 after response — no
+  user latency, but DB load). Batch it when touching that area.
+- `TimetableGrid` per-render `filter().sort()` per day column (6×/render,
+  tiny N) — memoize only if profiling shows it matters.
+- Images: 1.4–2.3 MB PNGs in `src/assets` (workshop/campus), 200–290 KB JPGs
+  shipped as-is. Convert to WebP + compress + `srcset` when doing an asset
+  pass. No `loading="lazy"` elsewhere — audit on next image touch.
+- No `useMemo`/`useCallback`/`memo` added: no measured render-cost problem;
+  scroll drivers already use rAF + CSS vars (no per-frame setState).
+- Verbosity kept: `TeacherDashboard` (~1000 lines), admin pages with
+  `Field`/`ErrorNote`/`OkNote` repetition, `STATUS_STYLES`/`TYPE_STYLES`
+  duplicated across dashboards — readable, tested, not a runtime cost.
+
+### Verification (this tree)
+
+- `npm run lint` — PASS. `npm run build` — PASS in production mode
+  (`jsxDEV` absent, `index-*` 267.2 KB / gzip 82.3).
+- `test-shared-libs.mjs` — 34/34. `test-auth-client-isolation.mjs` — 3/3.
+- `test-public-forms.mjs` (spawns the API against live Supabase) — 24/24.
+- `test-auth-bundle-split.mjs` (new, `npm run test:auth-bundle`, wired into
+  CI) — 5/5: asserts nothing in `src/` imports `@supabase/supabase-js` or the
+  heavy client statically, so the entry-chunk win cannot regress silently.
+- `git diff --check` — clean (LF/CRLF warnings only, pre-existing).
+- **Not covered by any automated test:** the browser sign-in / sign-out round
+  trip now crosses a dynamic import. Smoke-test before shipping: sign in →
+  Navbar + dashboard react immediately; hard-reload while signed in → stays
+  signed in; sign out → returns to signed-out; a fresh private window opens
+  the public site with zero requests to `supabaseClient-*.js`.
