@@ -493,7 +493,7 @@ function Navbar() {
 
     {/* Keep the ticker in document flow so it scrolls away instead of staying
         pinned under the compact navigation. */}
-    <div className="px-6 md:px-8 mt-4">
+    <div className="px-6 md:px-8 mt-4 mb-6 md:mb-8">
       <NewsTicker />
     </div>
 
