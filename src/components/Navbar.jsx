@@ -37,38 +37,28 @@ function Navbar() {
   // Lazy initializers keep the bar correct when the page is restored
   // mid-scroll (reload / back-navigation) instead of flashing unscrolled.
   const [isScrolled, setIsScrolled] = useState(() => window.scrollY > 100);
+  const isScrolledRef = useRef(window.scrollY > 100);
   const menuButtonRef = useRef(null);
   const menuRef = useRef(null);
   const headerRef = useRef(null);
 
-  // Scroll driver. `isScrolled` keeps the original binary threshold (mobile
-  // bar + a11y visibility guards); `--nav-p` (0→1 over the first 100px of
-  // scroll) is written straight to the header's inline style so the desktop
-  // morph rules in index.css interpolate continuously with scroll — no
-  // per-frame React re-render, and scrolling back up reverses the animation.
+  // Only update the navbar when scrolling crosses the compact threshold.
+  // Continuously writing --nav-p changes layout properties (height, padding,
+  // flex widths) on every animation frame and makes the whole page repaint
+  // during scroll. A single threshold update avoids that scroll-linked work.
   useEffect(() => {
-    let raf = 0;
-    const MORPH_SPAN_PX = 100;
-
     const update = () => {
-      raf = 0;
-      const y = window.scrollY;
-      setIsScrolled(y > 100);
-      headerRef.current?.style.setProperty(
-        '--nav-p',
-        String(Math.min(1, Math.max(0, y / MORPH_SPAN_PX)))
-      );
+      const nextScrolled = window.scrollY > 100;
+      if (isScrolledRef.current === nextScrolled) return;
+      isScrolledRef.current = nextScrolled;
+      headerRef.current?.style.setProperty('--nav-p', nextScrolled ? '1' : '0');
+      setIsScrolled(nextScrolled);
     };
-
-    const handleScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-
+    headerRef.current?.style.setProperty('--nav-p', window.scrollY > 100 ? '1' : '0');
     update();
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', update, { passive: true });
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', update);
     };
   }, []);
 
