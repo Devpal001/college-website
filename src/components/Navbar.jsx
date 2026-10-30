@@ -34,33 +34,11 @@ function Navbar() {
   // component previously kept its own duplicate copy of both.
   const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Lazy initializers keep the bar correct when the page is restored
-  // mid-scroll (reload / back-navigation) instead of flashing unscrolled.
-  const [isScrolled, setIsScrolled] = useState(() => window.scrollY > 100);
-  const isScrolledRef = useRef(window.scrollY > 100);
+  // Keep the full navigation in normal document flow. A tall sticky header
+  // with scroll-linked layout morphing caused content overlap and jank.
+  const isScrolled = false;
   const menuButtonRef = useRef(null);
   const menuRef = useRef(null);
-  const headerRef = useRef(null);
-
-  // Only update the navbar when scrolling crosses the compact threshold.
-  // Continuously writing --nav-p changes layout properties (height, padding,
-  // flex widths) on every animation frame and makes the whole page repaint
-  // during scroll. A single threshold update avoids that scroll-linked work.
-  useEffect(() => {
-    const update = () => {
-      const nextScrolled = window.scrollY > 100;
-      if (isScrolledRef.current === nextScrolled) return;
-      isScrolledRef.current = nextScrolled;
-      headerRef.current?.style.setProperty('--nav-p', nextScrolled ? '1' : '0');
-      setIsScrolled(nextScrolled);
-    };
-    headerRef.current?.style.setProperty('--nav-p', window.scrollY > 100 ? '1' : '0');
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', update);
-    };
-  }, []);
 
   // Theme switching: toggle the `dark` class on <html> and persist the
   // choice. All palette values live in src/index.css (:root + html.dark);
@@ -157,16 +135,10 @@ function Navbar() {
   }, [menuOpen]);
 
   return (
-    // Position: in-flow `relative` below md (original mobile behaviour — mobile
-    // navigation lives in the fixed bottom bar, and pinning the tall header
-    // would swallow a phone viewport), `sticky` from md up so the compact
-    // scrolled nav stays pinned. Sticky's containing block is #root (full page
-    // height — verified free of overflow/transform ancestors), so the bar stays
-    // pinned at every scroll depth. The background appears only once scrolled —
-    // the initial hero presentation stays clean.
+    // Keep the header in document flow so it cannot cover page content while
+    // scrolling. Mobile's bottom navigation remains fixed independently.
     <div
-      ref={headerRef}
-      className={`nav-root relative w-full transition-all duration-300 md:sticky md:top-0 md:z-50 ${isScrolled ? 'pb-2 bg-navbar border-b border-text-muted/25 md:bg-transparent md:border-b-0' : 'pb-6'}`}
+      className="nav-root relative w-full pb-6"
     >
       {/* Desktop-only continuous bar background + border: fades in with
           --nav-p instead of popping at the threshold. Mobile keeps the
