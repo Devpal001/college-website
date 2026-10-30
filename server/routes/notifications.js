@@ -3,6 +3,7 @@ import { authRequired, requireRole, getTeacherForAuth } from '../middleware/auth
 import { supabase } from '../lib/db.js';
 
 import { sendError } from '../lib/httpError.js';
+import { getWebPushPublicKey, sendWebPushNotifications } from '../lib/webPush.js';
 // M-1 (Phase 7): reuse the SAME assignment-authorization model as
 // attendance/marks marking (server/routes/records.js) — no second auth model.
 import { isTeacherAssigned } from './records.js';
@@ -37,6 +38,9 @@ async function createNotificationForUsers(userIds, notificationData) {
     .select();
 
   if (error) throw error;
+  void sendWebPushNotifications(data).catch((pushError) => {
+    console.error('Web push notification dispatch failed:', pushError.message);
+  });
   return data;
 }
 
@@ -112,6 +116,81 @@ async function shouldSendNotification(userId, notificationType) {
 // ============================================
 // USER NOTIFICATION ENDPOINTS
 // ============================================
+
+router.get('/push/public-key', authRequired, (req, res) => {
+  const key = getWebPushPublicKey();
+  res.json({ enabled: Boolean(key), publicKey: key });
+});
+
+router.get('/push/subscription', authRequired, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('web_push_subscriptions')
+      .select('endpoint')
+      .eq('user_id', req.profile.id)
+      .limit(1);
+    if (error) throw error;
+    res.json({ subscribed: Boolean(data?.length) });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.post('/push/subscription', authRequired, async (req, res) => {
+  try {
+    const subscription = req.body;
+    const endpoint = typeof subscription?.endpoint === 'string' ? subscription.endpoint : '';
+    const keys = subscription?.keys;
+    let parsedEndpoint;
+    try {
+      parsedEndpoint = new URL(endpoint);
+    } catch {
+      return res.status(400).json({ error: 'Invalid push subscription endpoint' });
+    }
+    if (parsedEndpoint.protocol !== 'https:' || endpoint.length > 2048 || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: 'Invalid push subscription' });
+    }
+
+    const { data: existing, error: lookupError } = await supabase
+      .from('web_push_subscriptions')
+      .select('id, user_id')
+      .eq('endpoint', endpoint)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing && existing.user_id !== req.profile.id) {
+      return res.status(409).json({ error: 'This device subscription belongs to another account' });
+    }
+
+    const query = existing
+      ? supabase.from('web_push_subscriptions').update({ subscription }).eq('id', existing.id)
+      : supabase.from('web_push_subscriptions').insert({
+          user_id: req.profile.id,
+          endpoint,
+          subscription,
+        });
+    const { error } = await query;
+    if (error) throw error;
+    res.status(204).end();
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/push/subscription', authRequired, async (req, res) => {
+  try {
+    const endpoint = req.query.endpoint;
+    if (typeof endpoint !== 'string') return res.status(400).json({ error: 'Subscription endpoint is required' });
+    const { error } = await supabase
+      .from('web_push_subscriptions')
+      .delete()
+      .eq('user_id', req.profile.id)
+      .eq('endpoint', endpoint);
+    if (error) throw error;
+    res.status(204).end();
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 /**
  * GET /api/notifications/me

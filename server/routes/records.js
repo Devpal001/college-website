@@ -4,6 +4,7 @@ import { authRequired, getTeacherForAuth } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
 import { isUuid, requireArray, requireUuid } from '../lib/validate.js';
+import { sendWebPushNotifications } from '../lib/webPush.js';
 
 const router = Router();
 
@@ -65,7 +66,14 @@ async function sendLowAttendanceAlerts(low, subjectName) {
       }));
 
     if (rows.length > 0) {
-      await supabase.from('notifications').insert(rows);
+      const { data, error: insertError } = await supabase
+        .from('notifications')
+        .insert(rows)
+        .select('id, user_id, title, message, type');
+      if (insertError) throw insertError;
+      void sendWebPushNotifications(data).catch((pushError) => {
+        console.error('Low attendance push delivery failed:', pushError.message);
+      });
     }
   } catch (error) {
     console.error('Error triggering attendance notification:', error);
@@ -477,7 +485,14 @@ router.post('/marks', async (req, res) => {
           }));
 
         if (rows.length > 0) {
-          await supabase.from('notifications').insert(rows);
+          const { data, error: insertError } = await supabase
+            .from('notifications')
+            .insert(rows)
+            .select('id, user_id, title, message, type');
+          if (insertError) throw insertError;
+          void sendWebPushNotifications(data).catch((pushError) => {
+            console.error('Marks push delivery failed:', pushError.message);
+          });
         }
       } catch (error) {
         console.error('Error in marks notification background task:', error);

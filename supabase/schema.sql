@@ -355,6 +355,18 @@ CREATE TABLE notifications (
   expires_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Per-device Web Push subscriptions. Access is server-only via the service
+-- role; the API always scopes subscriptions to the authenticated profile.
+CREATE TABLE web_push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX idx_web_push_subscriptions_user ON web_push_subscriptions(user_id);
+
 -- Notification preferences
 CREATE TABLE notification_preferences (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -582,6 +594,7 @@ ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE web_push_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE news_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE news_items ENABLE ROW LEVEL SECURITY;

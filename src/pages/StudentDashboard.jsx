@@ -6,6 +6,8 @@ import { STATUS_STYLES, TYPE_STYLES, CHIP_FALLBACK } from '../lib/chips';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TimetableGrid from '../components/TimetableGrid';
+import InstallAppPrompt from '../components/InstallAppPrompt';
+import PushNotificationPrompt from '../components/PushNotificationPrompt';
 import {
   GraduationCap,
   Calendar,
@@ -149,6 +151,9 @@ function StudentDashboard() {
           <span>{data.unreadNotifications} unread</span>
         </div>
       </div>
+
+      <InstallAppPrompt />
+      <PushNotificationPrompt />
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">

@@ -13,6 +13,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 // sit in the initial bundle. Lazy-loading it keeps VendorChart-sized chat UI
 // out of first paint; the floating button is part of the lazy chunk itself.
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
+const PWAUpdatePrompt = lazy(() => import('./components/PWAUpdatePrompt'));
 
 // Minimal fallback while a lazy chunk loads — keeps layout stable.
 function RouteFallback() {
@@ -170,6 +171,9 @@ function App() {
           first paint never waits for the chat chunk. */}
       <Suspense fallback={null}>
         <AIAssistant />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PWAUpdatePrompt />
       </Suspense>
       <Footer />
     </>

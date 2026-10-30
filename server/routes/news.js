@@ -3,6 +3,7 @@ import { supabase } from '../lib/db.js';
 import { authRequired, requireRole } from '../middleware/auth.js';
 
 import { sendError } from '../lib/httpError.js';
+import { sendWebPushNotifications } from '../lib/webPush.js';
 
 const router = Router();
 
@@ -527,7 +528,14 @@ router.put('/admin/items/:id/verify', ...adminGuard, async (req, res) => {
               created_at: new Date().toISOString()
             }));
 
-            await supabase.from('notifications').insert(notifications);
+            const { data: created, error: insertError } = await supabase
+              .from('notifications')
+              .insert(notifications)
+              .select('id, user_id, title, message, type');
+            if (insertError) throw insertError;
+            void sendWebPushNotifications(created).catch((pushError) => {
+              console.error('News push delivery failed:', pushError.message);
+            });
           }
         } catch (error) {
           console.error('Error triggering news notification:', error);
