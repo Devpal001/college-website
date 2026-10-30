@@ -942,6 +942,26 @@ html.dark .nav-morph-background {
   );
 }
 
+/* Campus Guide fits the usable viewport on phones and keeps its composer
+   above the fixed mobile navigation. The conversation scrolls inside it. */
+.ai-assistant-panel {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: 0.75rem;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  left: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ai-assistant-panel {
+    top: auto;
+    right: 1.5rem;
+    bottom: 6rem;
+    left: auto;
+    width: min(24rem, calc(100vw - 3rem));
+    height: min(42rem, calc(100dvh - 8rem));
+  }
+}
+
 /* ── Soft UI shadow utilities ─────────────────────────────────────────────
    Tailwind v4 only generates shadow utilities from `@theme` keys; these
    classes intentionally resolve through runtime CSS variables instead so
