@@ -97,69 +97,111 @@ router.get('/me/dashboard', async (req, res) => {
     const student = await getStudentForAuth(req, res);
     if (!student) return;
 
-    const [{ data: department }, { data: enrollments }, { data: attendance }, { data: marks }] =
-      await Promise.all([
-        supabase
-          .from('departments')
-          .select('*')
-          .eq('id', student.department_id)
-          .maybeSingle(),
-        supabase
-          .from('enrollments')
-          .select('*, semesters(*), sections(*)')
-          .eq('student_id', student.id)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(3),
-        supabase
-          .from('attendance')
-          .select('*, attendance_sessions(*, subjects(*), teachers(*))')
-          .eq('student_id', student.id),
-        supabase
-          .from('marks')
-          .select('*, assessments(*, subjects(*))')
-          .eq('student_id', student.id)
-          .order('entered_at', { ascending: false })
-          .limit(100),
-      ]);
+    // Two round trips after the identity lookup (was six): everything that
+    // depends only on `student` / `req.user.id` runs in one parallel wave;
+    // only the timetable has to wait, because it needs the section id that
+    // wave 1 discovers. These reads are the dashboard's core payload, so a
+    // failed query must never be reported as "no records yet". An empty array
+    // and a database error are indistinguishable downstream (0/0 attendance,
+    // "No marks recorded yet"), which is exactly how a broken read turns into
+    // a silent, convincing "the teacher never submitted anything" report. Core
+    // failures surface as a retryable 500 with a stable code (same
+    // discrimination as getStudentForAuth); the decorative sections
+    // (department, timetable, announcements) stay soft.
+    const [
+      { data: department, error: departmentError },
+      { data: enrollments, error: enrollmentsError },
+      { data: attendance, error: attendanceError },
+      { data: marks, error: marksError },
+      { count: unreadCount } = { count: null },
+      { data: announcementRows } = { data: [] },
+      { data: eventRows } = { data: [] },
+    ] = await Promise.all([
+      // department_id is NULL for accounts provisioned without a department, and
+      // `.eq('id', null)` fails with 22P02 rather than returning nothing — skip it.
+      student.department_id
+        ? supabase.from('departments').select('id, name, code').eq('id', student.department_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from('enrollments')
+        .select('id, student_id, section_id, semester_id, status, created_at, semesters(id, name, semester_number), sections(id, name)')
+        .eq('student_id', student.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(3),
+      supabase
+        .from('attendance')
+        .select('id, status, marked_at, attendance_sessions(id, date, subject_id, subjects(id, name, code))')
+        .eq('student_id', student.id),
+      supabase
+        .from('marks')
+        .select('id, marks_obtained, marks_max, entered_at, assessments(id, title, type, max_marks, subjects(id, name, code))')
+        .eq('student_id', student.id)
+        .order('entered_at', { ascending: false })
+        .limit(100),
+      // Unread badge (the notification *list* is fetched by NotificationBell,
+      // not by this endpoint's consumer — see §24 request audit).
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', req.user.id)
+        .eq('read', false),
+      // Relevant announcements (all + role + department code)
+      supabase
+        .from('announcements')
+        .select('id, title, category, target_audience, published_at')
+        .eq('is_active', true)
+        .order('published_at', { ascending: false })
+        .limit(30),
+      // Upcoming events
+      supabase
+        .from('events')
+        .select('id, title, event_date, event_time')
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .order('event_date', { ascending: true })
+        .limit(6),
+    ]);
+
+    for (const [table, queryError] of [
+      ['enrollments', enrollmentsError],
+      ['attendance', attendanceError],
+      ['marks', marksError],
+    ]) {
+      if (!queryError) continue;
+      console.error(
+        `[students] dashboard ${table} query failed for students.id=${student.id} (${req.method} ${req.originalUrl}): ${queryError.code || 'unknown'} ${queryError.message}`
+      );
+      return res.status(500).json({
+        error: 'Unable to load your academic records right now. Please try again in a moment.',
+        code: 'STUDENT_RECORDS_UNAVAILABLE',
+      });
+    }
+    if (departmentError) {
+      console.warn(
+        `[students] dashboard department lookup failed for students.id=${student.id}: ${departmentError.message}`
+      );
+    }
 
     const activeEnrollment = enrollments?.[0] || null;
 
-    // Timetable for the student's current section
+    // Wave 2 (dependent): the timetable needs the section id resolved above.
+    // Timetable for the student's current section. The grid only renders
+    // day/time + subject/teacher/room names, so project exactly those.
     let timetable = [];
     const sectionId = activeEnrollment?.section_id;
     if (sectionId) {
       const { data: tt, error: ttError } = await supabase
         .from('timetable')
-        .select('*, subjects(*), teachers(*, profiles(full_name)), rooms(*), semesters(*)')
+        .select('id, day_of_week, start_time, end_time, subjects(id, name, code), teachers(id, employee_id, profiles(full_name)), rooms(id, room_number), semesters(id, name)')
         .eq('section_id', sectionId)
         .order('day_of_week')
         .order('start_time');
       if (!ttError) timetable = tt || [];
     }
 
-    // Notifications (latest + unread count)
-    const { data: notifications } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    const { count: allUnread } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', req.user.id)
-      .eq('read', false);
-
-    // Relevant announcements (all + role + department code)
-    const { data: announcements } = await supabase
-      .from('announcements')
-      .select('*')
-      .eq('is_active', true)
-      .order('published_at', { ascending: false })
-      .limit(30);
-
-    const relevantAnnouncements = (announcements || []).filter((a) => {
+    // Announcements/events/unread count were fetched in wave 1 above; only the
+    // relevance filter (which needs `department`) runs here.
+    const relevantAnnouncements = (announcementRows || []).filter((a) => {
       const targets = a.target_audience || [];
       return (
         targets.includes('all') ||
@@ -168,14 +210,6 @@ router.get('/me/dashboard', async (req, res) => {
         (student.current_semester && targets.includes('semester_' + student.current_semester))
       );
     });
-
-    // Upcoming events
-    const { data: events } = await supabase
-      .from('events')
-      .select('*')
-      .gte('event_date', new Date().toISOString().split('T')[0])
-      .order('event_date', { ascending: true })
-      .limit(6);
 
     res.json({
       profile: req.profile,
@@ -191,9 +225,8 @@ router.get('/me/dashboard', async (req, res) => {
       marksSummary: summarizeMarks(marks || []),
       timetable,
       announcements: relevantAnnouncements,
-      events: events || [],
-      notifications: notifications || [],
-      unreadNotifications: allUnread ?? 0,
+      events: eventRows || [],
+      unreadNotifications: unreadCount ?? 0,
     });
   } catch (error) {
     console.error('Get student dashboard error:', error);
@@ -217,7 +250,7 @@ router.get('/me/attendance', async (req, res) => {
 
     let query = supabase
       .from('attendance')
-      .select('*, attendance_sessions(*, subjects(*), teachers(*))')
+      .select('id, status, marked_at, attendance_sessions(id, date, subject_id, subjects(id, name, code))')
       .eq('student_id', student.id)
       .order('marked_at', { ascending: false });
 
@@ -256,7 +289,7 @@ router.get('/me/marks', async (req, res) => {
 
     let query = supabase
       .from('marks')
-      .select('*, assessments(*, subjects(*), semesters(*))')
+      .select('id, marks_obtained, marks_max, entered_at, assessments(id, title, type, max_marks, subjects(id, name, code))')
       .eq('student_id', student.id)
       .order('entered_at', { ascending: false });
 
@@ -292,7 +325,7 @@ router.get('/me/timetable', async (req, res) => {
 
     const { data: enrollments } = await supabase
       .from('enrollments')
-      .select('*, semesters(*), sections(*)')
+      .select('id, student_id, section_id, semester_id, status, created_at, semesters(id, name, semester_number), sections(id, name)')
       .eq('student_id', student.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -305,7 +338,7 @@ router.get('/me/timetable', async (req, res) => {
 
     const { data, error } = await supabase
       .from('timetable')
-      .select('*, subjects(*), teachers(*, profiles(full_name)), rooms(*), semesters(*)')
+      .select('id, day_of_week, start_time, end_time, subjects(id, name, code), teachers(id, employee_id, profiles(full_name)), rooms(id, room_number), semesters(id, name)')
       .eq('section_id', enrollment.section_id)
       .order('day_of_week')
       .order('start_time');
@@ -336,11 +369,13 @@ router.get('/me', async (req, res) => {
     const student = await getStudentForAuth(req, res);
     if (!student) return;
 
-    const { data: department } = await supabase
-      .from('departments')
-      .select('*')
-      .eq('id', student.department_id)
-      .maybeSingle();
+    const { data: department } = student.department_id
+      ? await supabase
+        .from('departments')
+        .select('id, name, code')
+        .eq('id', student.department_id)
+        .maybeSingle()
+      : { data: null };
 
     res.json({ profile: req.profile, student, department });
   } catch (error) {

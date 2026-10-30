@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { GraduationCap, Users, Building2 } from 'lucide-react';
-import campusImg from '../assets/admin_library-1.jpg';
+import campusImg from '../assets/admin_library-1.webp';
 import PhotoCarousel from '../components/PhotoCarousel';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 

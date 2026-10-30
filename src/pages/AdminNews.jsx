@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import Badge from '../components/Badge';
+import { inputCls, Field, ErrorNote, OkNote } from '../components/AdminForm';
 
 const CATEGORIES = [
   'exam',
@@ -43,11 +44,6 @@ const SOURCE_CATEGORIES = ['general', 'exam', 'admission', 'placement', 'academi
 
 const VERIFICATION_STATUSES = ['pending', 'verified', 'rejected', 'flagged'];
 
-const inputCls =
-  'px-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full';
-
-const labelCls = 'block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1';
-
 function verificationTone(status) {
   if (status === 'verified') return 'green';
   if (status === 'rejected') return 'red';
@@ -59,25 +55,6 @@ function formatDate(value) {
   if (!value) return '—';
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className={labelCls}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function ErrorNote({ message }) {
-  if (!message) return null;
-  return <div className="bg-error/10 text-error-dark rounded-soft p-3 text-sm">{message}</div>;
-}
-
-function OkNote({ message }) {
-  if (!message) return null;
-  return <div className="bg-success/10 text-success-dark rounded-soft p-3 text-sm">{message}</div>;
 }
 
 function ItemsTab() {

@@ -13,44 +13,59 @@ router.use(authRequired);
 const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'];
 
 // ============================================
-// Notification trigger helper
+// Notification trigger helpers (batched — §24)
 // ============================================
-async function triggerAttendanceNotification(studentId, attendancePercentage, subjectName) {
+// The low-attendance path used to run up to 3 queries PER student (profile
+// lookup, preferences lookup, insert) inside a background loop — as many as
+// 1500 queries for a 500-student submission, plus a subject lookup repeated
+// once per student. These helpers do the same work in at most three queries
+// and keep the original semantics:
+//   - student with no `students` row      -> skipped
+//   - no `notification_preferences` row   -> notify (default on)
+//   - preferences row present             -> notify only when the flag is truthy
+// Notifications stay best-effort: errors are logged, never thrown, so the
+// main request (already answered) can never be affected.
+async function sendLowAttendanceAlerts(low, subjectName) {
   try {
-    // Get student profile
-    const { data: student } = await supabase
+    if (low.length === 0) return;
+
+    const { data: students, error } = await supabase
       .from('students')
-      .select('profile_id')
-      .eq('id', studentId)
-      .single();
+      .select('id, profile_id')
+      .in('id', low.map((l) => l.studentId));
+    if (error || !students) return;
 
-    if (!student) return;
+    const profileByStudent = new Map(students.map((s) => [s.id, s.profile_id]));
+    const targets = low.filter((l) => profileByStudent.has(l.studentId));
+    if (targets.length === 0) return;
 
-    // Check if attendance is below threshold (75%)
-    if (attendancePercentage < 75) {
-      // Check user notification preferences
-      const { data: preferences } = await supabase
-        .from('notification_preferences')
-        .select('attendance_alerts')
-        .eq('user_id', student.profile_id)
-        .single();
+    const profileIds = targets.map((l) => profileByStudent.get(l.studentId));
+    const { data: preferences } = await supabase
+      .from('notification_preferences')
+      .select('user_id, attendance_alerts')
+      .in('user_id', profileIds);
+    const prefByUser = new Map(
+      (preferences || []).map((p) => [p.user_id, p.attendance_alerts])
+    );
 
-      const shouldNotify = preferences ? preferences.attendance_alerts : true;
-      
-      if (shouldNotify) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: student.profile_id,
-            title: 'Low Attendance Alert',
-            message: `Your attendance in ${subjectName} has fallen to ${attendancePercentage}%. Please attend classes regularly.`,
-            type: 'attendance',
-            priority: 'high',
-            status: 'pending',
-            data: { attendancePercentage, subjectName },
-            created_at: new Date().toISOString()
-          });
-      }
+    const rows = targets
+      .filter((l) => {
+        const pid = profileByStudent.get(l.studentId);
+        return prefByUser.has(pid) ? Boolean(prefByUser.get(pid)) : true;
+      })
+      .map((l) => ({
+        user_id: profileByStudent.get(l.studentId),
+        title: 'Low Attendance Alert',
+        message: `Your attendance in ${subjectName} has fallen to ${l.percentage}%. Please attend classes regularly.`,
+        type: 'attendance',
+        priority: 'high',
+        status: 'pending',
+        data: { attendancePercentage: l.percentage, subjectName },
+        created_at: new Date().toISOString(),
+      }));
+
+    if (rows.length > 0) {
+      await supabase.from('notifications').insert(rows);
     }
   } catch (error) {
     console.error('Error triggering attendance notification:', error);
@@ -177,39 +192,59 @@ router.post('/attendance', async (req, res) => {
 
     res.status(201).json({ sessionId, records: upserts });
 
-    // Trigger attendance notifications for students with low attendance
-    // This is done asynchronously after the response
+    // Trigger attendance notifications for students with low attendance.
+    // Runs asynchronously after the response (non-blocking, as before) but is
+    // batched (§24): 1 subject lookup + 1 attendance read covering every
+    // student + at most 3 notification queries = 5 queries total instead of
+    // up to 5 per submitted student.
     setImmediate(async () => {
       try {
-        for (const record of records) {
-          // Calculate attendance percentage for this student in this subject
-          const { data: attendanceData } = await supabase
-            .from('attendance')
-            .select('*, attendance_sessions(subject_id)')
-            .eq('student_id', record.studentId);
+        const studentIds = [...new Set(records.map((r) => r.studentId))];
 
-          if (attendanceData && attendanceData.length > 0) {
-            const subjectAttendance = attendanceData.filter(a => 
-              a.attendance_sessions?.subject_id === subjectId
-            );
-            
-            if (subjectAttendance.length > 0) {
-              const presentCount = subjectAttendance.filter(a => a.status === 'present').length;
-              const percentage = (presentCount / subjectAttendance.length) * 100;
-              
-              // Get subject name
-              const { data: subject } = await supabase
-                .from('subjects')
-                .select('name')
-                .eq('id', subjectId)
-                .single();
+        // The subject is identical for every student — look it up once.
+        const { data: subject } = await supabase
+          .from('subjects')
+          .select('name')
+          .eq('id', subjectId)
+          .single();
+        if (!subject) return;
 
-              if (subject) {
-                await triggerAttendanceNotification(record.studentId, percentage, subject.name);
-              }
-            }
-          }
+        // One read for the whole submission: each student's attendance rows
+        // that belong to THIS subject's sessions (!inner keeps the join to
+        // matching sessions, so only rows that count are returned).
+        const { data: attendanceRows, error: attendanceError } = await supabase
+          .from('attendance')
+          .select('student_id, status, attendance_sessions!inner(subject_id)')
+          .in('student_id', studentIds)
+          .eq('attendance_sessions.subject_id', subjectId);
+        if (attendanceError) {
+          console.error(
+            'attendance batch for notifications failed:',
+            attendanceError.message
+          );
+          return;
         }
+
+        // Same arithmetic as the per-student loop this replaces: present /
+        // total within this subject, and only students that have at least one
+        // row here are eligible.
+        const byStudent = new Map();
+        for (const row of attendanceRows || []) {
+          const list = byStudent.get(row.student_id) || [];
+          list.push(row);
+          byStudent.set(row.student_id, list);
+        }
+
+        const low = [];
+        for (const studentId of studentIds) {
+          const rows = byStudent.get(studentId);
+          if (!rows || rows.length === 0) continue;
+          const presentCount = rows.filter((a) => a.status === 'present').length;
+          const percentage = (presentCount / rows.length) * 100;
+          if (percentage < 75) low.push({ studentId, percentage });
+        }
+
+        await sendLowAttendanceAlerts(low, subject.name);
       } catch (error) {
         console.error('Error in attendance notification background task:', error);
       }
@@ -272,7 +307,7 @@ router.put('/attendance/:id', async (req, res) => {
 
     const { data: record, error: fetchError } = await supabase
       .from('attendance')
-      .select('*, attendance_sessions(*)')
+      .select('id, status, notes, attendance_sessions(teacher_id)')
       .eq('id', id)
       .single();
 
@@ -326,7 +361,7 @@ router.post('/marks', async (req, res) => {
 
     const { data: assessment, error: assessError } = await supabase
       .from('assessments')
-      .select('*')
+      .select('id, title, subject_id, max_marks')
       .eq('id', assessmentId)
       .single();
 
@@ -375,24 +410,15 @@ router.post('/marks', async (req, res) => {
           entered_by: teacher.id,
           entered_at: new Date().toISOString(),
         };
-        const { data: existing } = await supabase
+        // Single round trip per student: the marks table's
+        // UNIQUE(assessment_id, student_id) makes the row idempotent, so one
+        // upsert replaces the old maybeSingle + update-or-insert pair (which
+        // needed 2 round trips per student).
+        const { data, error } = await supabase
           .from('marks')
-          .select('id')
-          .eq('assessment_id', assessmentId)
-          .eq('student_id', r.studentId)
-          .maybeSingle();
-
-        if (existing) {
-          const { data, error } = await supabase
-            .from('marks')
-            .update({ marks_obtained: obtained, remarks: row.remarks, entered_by: teacher.id })
-            .eq('id', existing.id)
-            .select()
-            .single();
-          if (error) throw error;
-          return data;
-        }
-        const { data, error } = await supabase.from('marks').insert(row).select().single();
+          .upsert(row, { onConflict: 'assessment_id,student_id' })
+          .select()
+          .single();
         if (error) throw error;
         return data;
       })
@@ -422,30 +448,36 @@ router.post('/marks', async (req, res) => {
 
         if (!students) return;
 
-        // Filter by notification preferences and send notifications
-        for (const student of students) {
-          const { data: preferences } = await supabase
-            .from('notification_preferences')
-            .select('exam_updates')
-            .eq('user_id', student.profile_id)
-            .single();
+        // Filter by notification preferences and send notifications.
+        // One batched preferences read + one bulk insert instead of up to two
+        // queries per student (§24 N+1 fix); same defaults and row shape.
+        const { data: preferences } = await supabase
+          .from('notification_preferences')
+          .select('user_id, exam_updates')
+          .in('user_id', students.map((s) => s.profile_id));
+        const prefByUser = new Map(
+          (preferences || []).map((p) => [p.user_id, p.exam_updates])
+        );
 
-          const shouldNotify = preferences ? preferences.exam_updates : true;
-          
-          if (shouldNotify) {
-            await supabase
-              .from('notifications')
-              .insert({
-                user_id: student.profile_id,
-                title: 'Marks Published',
-                message: `Your marks for ${assessment.title} (${subject.name}) have been published.`,
-                type: 'exam',
-                priority: 'normal',
-                status: 'pending',
-                data: { assessmentId: assessment.id, assessmentTitle: assessment.title, subjectName: subject.name },
-                created_at: new Date().toISOString()
-              });
-          }
+        const rows = students
+          .filter((student) =>
+            prefByUser.has(student.profile_id)
+              ? Boolean(prefByUser.get(student.profile_id))
+              : true
+          )
+          .map((student) => ({
+            user_id: student.profile_id,
+            title: 'Marks Published',
+            message: `Your marks for ${assessment.title} (${subject.name}) have been published.`,
+            type: 'exam',
+            priority: 'normal',
+            status: 'pending',
+            data: { assessmentId: assessment.id, assessmentTitle: assessment.title, subjectName: subject.name },
+            created_at: new Date().toISOString()
+          }));
+
+        if (rows.length > 0) {
+          await supabase.from('notifications').insert(rows);
         }
       } catch (error) {
         console.error('Error in marks notification background task:', error);
@@ -477,7 +509,7 @@ router.put('/marks/:id', async (req, res) => {
 
     const { data: record, error: fetchError } = await supabase
       .from('marks')
-      .select('*, assessments(*)')
+      .select('id, marks_obtained, marks_max, remarks, assessments(subject_id)')
       .eq('id', id)
       .single();
 

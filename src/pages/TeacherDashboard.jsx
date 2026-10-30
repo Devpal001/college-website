@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from 'react';
 import { api } from '../lib/api';
 import { useTabParam } from '../hooks/useTabParam';
 import { getInitials } from '../lib/format';
+import { STATUS_STYLES, TYPE_STYLES, CHIP_FALLBACK } from '../lib/chips';
 import PortalLayout from '../components/PortalLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TimetableGrid from '../components/TimetableGrid';
@@ -29,28 +30,6 @@ const ASSESSMENT_TYPES = [
   'final',
   'other',
 ];
-
-// Status chips use semantic tokens so they adapt to light/dark mode
-// and keep success/warning/error/info meaning consistent app-wide.
-const STATUS_STYLES = {
-  present: 'bg-success/10 text-success-dark',
-  absent: 'bg-error/10 text-error-dark',
-  late: 'bg-warning/10 text-warning-dark',
-  excused: 'bg-info/10 text-info-dark',
-};
-
-// Assessment types are categories, not statuses - neutral chips keep
-// color meaning reserved for status semantics (design system section 4).
-const TYPE_STYLES = {
-  assignment: 'bg-text-muted/10 text-text-muted',
-  quiz: 'bg-text-muted/10 text-text-muted',
-  midterm: 'bg-text-muted/10 text-text-muted',
-  practical: 'bg-text-muted/10 text-text-muted',
-  final: 'bg-text-muted/10 text-text-muted',
-  other: 'bg-text-muted/10 text-text-muted',
-};
-
-const CHIP_FALLBACK = 'bg-text-muted/10 text-text-muted';
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (

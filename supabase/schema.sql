@@ -476,10 +476,24 @@ CREATE INDEX idx_teachers_department ON teachers(department_id);
 -- Academic indexes
 CREATE INDEX idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX idx_enrollments_semester ON enrollments(semester_id);
+-- section_id is the filter on every roster/timetable/broadcast read
+-- (academics.js, records.js attendance save, notifications.js triggers);
+-- UNIQUE(student_id, semester_id) covers the student-side lookups.
+CREATE INDEX idx_enrollments_section ON enrollments(section_id);
 CREATE INDEX idx_attendance_session ON attendance(session_id);
 CREATE INDEX idx_attendance_student ON attendance(student_id);
 CREATE INDEX idx_marks_assessment ON marks(assessment_id);
 CREATE INDEX idx_marks_student ON marks(student_id);
+
+-- Timetable indexes: student/teacher dashboards and every timetable read
+-- filter on section_id or teacher_id — these were unindexed seq scans.
+CREATE INDEX idx_timetable_section ON timetable(section_id);
+CREATE INDEX idx_timetable_teacher ON timetable(teacher_id);
+
+-- Attendance session indexes: teacher dashboard count + session list filter
+-- on teacher_id. (session find-or-create uses UNIQUE(section_id, subject_id,
+-- date), whose leading column already provides that lookup.)
+CREATE INDEX idx_attendance_sessions_teacher ON attendance_sessions(teacher_id);
 
 -- Notification indexes
 CREATE INDEX idx_notifications_user ON notifications(user_id);

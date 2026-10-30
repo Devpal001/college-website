@@ -3,38 +3,15 @@ import { UserPlus, RefreshCw, GraduationCap } from 'lucide-react';
 import { api } from '../lib/api';
 import Badge from '../components/Badge';
 import PortalLayout from '../components/PortalLayout';
+import { inputCls, Field, ErrorNote, OkNote } from '../components/AdminForm';
 
 const ROLES = ['student', 'teacher', 'admin', 'super_admin'];
-
-const inputCls =
-  'px-3 py-2 text-sm rounded-soft bg-surface border border-text-muted/15 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full';
-
-const labelCls = 'block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1';
 
 function roleTone(role) {
   if (role === 'super_admin') return 'red';
   if (role === 'admin') return 'amber';
   if (role === 'teacher') return 'blue';
   return 'green';
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className={labelCls}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function ErrorNote({ message }) {
-  if (!message) return null;
-  return <div className="bg-error/10 text-error-dark rounded-soft p-3 text-sm">{message}</div>;
-}
-
-function OkNote({ message }) {
-  if (!message) return null;
-  return <div className="bg-success/10 text-success-dark rounded-soft p-3 text-sm">{message}</div>;
 }
 
 // ============================================
@@ -301,12 +278,32 @@ export default function AdminUsers() {
     institutionalId: '',
     enrollmentNumber: '',
     employeeId: '',
-    semesterNumber: '',
+    sectionId: '',
     requireActivation: false,
   });
   const [activation, setActivation] = useState(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState(null);
+
+  // Class/section reference data for student placement. Same source as
+  // TeacherAssignments: GET /api/sections embeds the section's real
+  // semester FK, so the semester sent to the API is never typed in.
+  const [sections, setSections] = useState([]);
+  const [sectionsError, setSectionsError] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .get('/api/sections')
+      .then((s) => {
+        if (alive) setSections(s || []);
+      })
+      .catch((err) => {
+        if (alive) setSectionsError(err.message || 'Failed to load classes/sections');
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // One-time activation codes are displayed grouped for readability.
   const formatCode = (code) => String(code).replace(/(.{4})(?=.)/g, '$1-');
@@ -314,6 +311,25 @@ export default function AdminUsers() {
   const flash = (msg) => {
     setNotice(msg);
     setTimeout(() => setNotice(null), 2500);
+  };
+
+  const selectedSection = sections.find((s) => s.id === form.sectionId) || null;
+  // Derived from the section's real semester_id FK — never a manual pick,
+  // so the admin can never submit a section/semester mismatch (the server
+  // re-validates the pair anyway). Same convention as TeacherAssignments.
+  const derivedSemesterId = selectedSection?.semesters?.id || '';
+  const semesterLabel = selectedSection?.semesters
+    ? `${selectedSection.semesters.name}${
+        selectedSection.semesters.courses ? ` · ${selectedSection.semesters.courses.name}` : ''
+      }`
+    : '';
+
+  // Student placement is mandatory in BOTH provisioning modes.
+  const requirePlacement = () => {
+    if (sectionsError) return sectionsError;
+    if (!form.sectionId) return 'Select a class/section for the student.';
+    if (!derivedSemesterId) return 'The selected class has no semester.';
+    return null;
   };
 
   const load = useCallback(
@@ -353,6 +369,10 @@ export default function AdminUsers() {
         setFormError('Name, institutional email and institutional ID are required');
         return;
       }
+      if (form.role === 'student') {
+        const placementError = requirePlacement();
+        if (placementError) return setFormError(placementError);
+      }
       setCreating(true);
       try {
         const res = await api.post('/api/users/registry', {
@@ -360,13 +380,13 @@ export default function AdminUsers() {
           fullName: form.fullName.trim(),
           email: form.email.trim(),
           role: form.role,
-          semesterNumber:
-            form.role === 'student' && form.semesterNumber
-              ? Number(form.semesterNumber)
-              : undefined,
+          // Students: explicit placement — the semester comes from the
+          // selected section's real FK, never from a typed-in guess.
+          semesterId: form.role === 'student' ? derivedSemesterId : undefined,
+          sectionId: form.role === 'student' ? form.sectionId : undefined,
         });
         setActivation(res?.data || null);
-        setForm((f) => ({ ...f, fullName: '', email: '', institutionalId: '', semesterNumber: '' }));
+        setForm((f) => ({ ...f, fullName: '', email: '', institutionalId: '', sectionId: '' }));
         await load(1);
       } catch (err) {
         setFormError(err.message || 'Failed to register identity');
@@ -382,6 +402,10 @@ export default function AdminUsers() {
       setFormError('Name, email and password are required');
       return;
     }
+    if (form.role === 'student') {
+      const placementError = requirePlacement();
+      if (placementError) return setFormError(placementError);
+    }
     setCreating(true);
     try {
       await api.post('/api/users/admin', {
@@ -391,12 +415,12 @@ export default function AdminUsers() {
         role: form.role,
         enrollmentNumber: form.role === 'student' ? form.enrollmentNumber.trim() : undefined,
         employeeId: form.role === 'teacher' ? form.employeeId.trim() : undefined,
-        semesterNumber:
-          form.role === 'student' && form.semesterNumber
-            ? Number(form.semesterNumber)
-            : undefined,
+        // Students: explicit placement — semester derived from the
+        // selected section's real FK, never from a typed-in guess.
+        semesterId: form.role === 'student' ? derivedSemesterId : undefined,
+        sectionId: form.role === 'student' ? form.sectionId : undefined,
       });
-      setForm((f) => ({ ...f, fullName: '', email: '', password: '', enrollmentNumber: '', employeeId: '', semesterNumber: '' }));
+      setForm((f) => ({ ...f, fullName: '', email: '', password: '', enrollmentNumber: '', employeeId: '', sectionId: '' }));
       flash('Account provisioned');
       await load(1);
     } catch (err) {
@@ -454,9 +478,24 @@ export default function AdminUsers() {
                     <input type="text" value={form.enrollmentNumber} onChange={(e) => setForm((f) => ({ ...f, enrollmentNumber: e.target.value }))} className={inputCls} placeholder="e.g. STU2026-014" />
                   </Field>
                 )}
-                <Field label="Semester (optional)">
-                  <input type="number" min="1" max="10" value={form.semesterNumber} onChange={(e) => setForm((f) => ({ ...f, semesterNumber: e.target.value }))} className={inputCls} />
+                <Field label="Class / Section (required — creates the enrollment)">
+                  <select
+                    value={form.sectionId}
+                    onChange={(e) => setForm((f) => ({ ...f, sectionId: e.target.value }))}
+                    className={inputCls}
+                  >
+                    <option value="">{sectionsError || 'Select class / section'}</option>
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </Field>
+                {semesterLabel && (
+                  <p className="sm:col-span-2 -mt-2 text-xs text-text-muted">
+                    Semester: {semesterLabel} — derived from the selected class's real semester
+                    (submitted as semesterId; the server re-validates the pair).
+                  </p>
+                )}
               </>
             )}
             {form.role === 'teacher' && !form.requireActivation && (

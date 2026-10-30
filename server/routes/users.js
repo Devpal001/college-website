@@ -14,7 +14,6 @@ import {
   requireString,
   requireEmail,
   requireOneOf,
-  requireNumber,
   pagination,
 } from '../lib/validate.js';
 
@@ -22,9 +21,14 @@ import {
 // ADMIN USER PROVISIONING (Phase 2 completion)
 // ------------------------------------------------------------
 // Production accounts are provisioned by ADMINS, not self-signup.
-// One endpoint creates: auth user -> profile -> role row.
+// One endpoint creates: auth user -> profile -> role row ->
+// (students only) an ACTIVE enrollments row placed in an explicit
+// semester + section, so the student is visible in teacher class
+// lists from the moment the account exists.
 // Rollback on any failure: auth.admin.deleteUser() cascades through
-// profiles and role rows (all ON DELETE CASCADE from auth.users).
+// profiles, role rows and enrollments (all ON DELETE CASCADE from
+// auth.users), so a failed enrollment insert never leaves a
+// partially provisioned student behind.
 //
 // SECURITY:
 // - admin/super_admin only (router-level guard below)
@@ -44,6 +48,96 @@ const ROLES = ['student', 'teacher', 'admin', 'super_admin'];
 // Router-level guard: EVERY route below is admin/super_admin only.
 // ============================================
 const router = Router();
+
+// ============================================
+// ENROLLMENT PLACEMENT (students only) — shared by POST /admin and
+// POST /registry.
+// ------------------------------------------------------------
+// A student account is only useful to teachers when an `enrollments`
+// row places them in a semester + section. The admin must state BOTH
+// explicitly on every provisioning call: nothing is inferred from
+// names, defaults or prior records. Returns the validated rows so the
+// callers derive students.current_* from real data — never guesses.
+//
+// Validation (all fail with 400 before any auth user is created):
+//   1. semesterId and sectionId are present and valid UUIDs
+//   2. the semester row exists          (SEMESTER_NOT_FOUND)
+//   3. the section row exists           (SECTION_NOT_FOUND)
+//   4. section.semester_id === semesterId (SEMESTER_SECTION_MISMATCH)
+// Duplicates are impossible by construction (fresh students.id) and
+// are additionally caught by enrollments UNIQUE(student_id, semester_id)
+// -> 409 DUPLICATE_ENROLLMENT with full rollback.
+// ============================================
+async function resolveEnrollmentPlacement(body) {
+  const semesterId = body?.semesterId;
+  const sectionId = body?.sectionId;
+  if (!semesterId || !sectionId) {
+    throw HttpError.badRequest(
+      'semesterId and sectionId are required when provisioning a student',
+      'PLACEMENT_REQUIRED'
+    );
+  }
+
+  const validSemesterId = requireUuid(semesterId, 'semesterId');
+  const validSectionId = requireUuid(sectionId, 'sectionId');
+
+  const { data: semester, error: semesterError } = await supabase
+    .from('semesters')
+    .select('id, name, semester_number')
+    .eq('id', validSemesterId)
+    .maybeSingle();
+  if (semesterError) throw semesterError;
+  if (!semester) {
+    throw HttpError.badRequest('semesterId does not match any semester', 'SEMESTER_NOT_FOUND');
+  }
+
+  const { data: section, error: sectionError } = await supabase
+    .from('sections')
+    .select('id, name, semester_id')
+    .eq('id', validSectionId)
+    .maybeSingle();
+  if (sectionError) throw sectionError;
+  if (!section) {
+    throw HttpError.badRequest('sectionId does not match any section', 'SECTION_NOT_FOUND');
+  }
+  if (section.semester_id !== semester.id) {
+    throw HttpError.badRequest(
+      'The selected section does not belong to the selected semester',
+      'SEMESTER_SECTION_MISMATCH'
+    );
+  }
+
+  return { semester, section };
+}
+
+// ============================================
+// Active enrollment insert — shared by POST /admin and POST /registry.
+// Runs INSIDE the callers' rollback block: any error below propagates,
+// auth.admin.deleteUser() removes the auth user and the just-created
+// student/profile/enrollment rows cascade away (no partial students).
+// ============================================
+async function insertActiveEnrollment(studentId, placement) {
+  const { error } = await supabase.from('enrollments').insert({
+    student_id: studentId,
+    semester_id: placement.semester.id,
+    section_id: placement.section.id,
+    status: 'active',
+  });
+  if (!error) return;
+  if (error.code === '23505') {
+    // enrollments UNIQUE(student_id, semester_id)
+    throw HttpError.conflict(
+      'This student already has an enrollment for this semester',
+      'DUPLICATE_ENROLLMENT'
+    );
+  }
+  if (error.code === '23503') {
+    // FK violation — a semester/section disappeared between validation and insert.
+    throw HttpError.badRequest('The selected semester or section does not exist', 'INVALID_PLACEMENT');
+  }
+  throw error;
+}
+
 router.use(authRequired, requireRole('admin', 'super_admin'));
 
 // ============================================
@@ -75,14 +169,10 @@ router.post('/admin', async (req, res) => {
       role === 'teacher'
         ? requireString(req.body?.employeeId, 'employeeId', { min: 2, max: 40 })
         : null;
-    const semesterNumber = req.body?.semesterNumber
-      ? requireNumber(req.body.semesterNumber, 'semesterNumber', {
-          min: 1,
-          max: 10,
-          integer: true,
-        })
-      : null;
-    const sectionId = req.body?.sectionId ? requireUuid(req.body.sectionId, 'sectionId') : null;
+
+    // Students: explicit semester + section, validated BEFORE the auth
+    // user exists (fail fast, zero side effects on an invalid placement).
+    const placement = role === 'student' ? await resolveEnrollmentPlacement(req.body) : null;
 
     // 1) Create the auth user (email pre-confirmed; admin delivers the
     //    password out-of-band — no invite emails in this flow).
@@ -121,13 +211,18 @@ router.post('/admin', async (req, res) => {
       // 3) Role row. students.enrollment_number and teachers.employee_id
       //    are UNIQUE — a duplicate surfaces as 409 with rollback below.
       if (role === 'student') {
-        const { error: studentError } = await supabase.from('students').insert({
-          profile_id: authUserId,
-          enrollment_number: enrollmentNumber,
-          department_id: departmentId,
-          current_semester: semesterNumber != null ? String(semesterNumber) : null,
-          current_section: sectionId,
-        });
+        const { data: studentRow, error: studentError } = await supabase
+          .from('students')
+          .insert({
+            profile_id: authUserId,
+            enrollment_number: enrollmentNumber,
+            department_id: departmentId,
+            // Derived from the validated placement rows — never guessed.
+            current_semester: placement.semester.semester_number,
+            current_section: placement.section.name,
+          })
+          .select('id')
+          .single();
         if (studentError) {
           if (studentError.code === '23505') {
             throw HttpError.conflict(
@@ -136,6 +231,12 @@ router.post('/admin', async (req, res) => {
           }
           throw studentError;
         }
+
+        // The enrollments row is what makes the student visible to
+        // teachers (class lists, POST /api/attendance's enrollment check,
+        // marks). Inside the rollback block: if this insert fails, the
+        // auth user — and with it this student row — is removed below.
+        await insertActiveEnrollment(studentRow.id, placement);
       } else if (role === 'teacher') {
         const { error: teacherError } = await supabase.from('teachers').insert({
           profile_id: authUserId,
@@ -164,6 +265,8 @@ router.post('/admin', async (req, res) => {
             enrollment_number: enrollmentNumber,
             employee_id: employeeId,
             department_id: departmentId,
+            semester_id: placement?.semester?.id ?? null,
+            section_id: placement?.section?.id ?? null,
           },
           ip_address: req.ip,
           user_agent: req.get('user-agent')?.slice(0, 300) || null,
@@ -181,10 +284,13 @@ router.post('/admin', async (req, res) => {
           department_id: departmentId,
           enrollment_number: enrollmentNumber,
           employee_id: employeeId,
+          semester_id: placement?.semester?.id ?? null,
+          section_id: placement?.section?.id ?? null,
         },
       });
     } catch (innerErr) {
-      // ROLLBACK: remove the auth user; profiles + role rows cascade.
+      // ROLLBACK: remove the auth user; profiles, role rows and the
+      // enrollment row (if it was created) all cascade away.
       try {
         await supabase.auth.admin.deleteUser(authUserId);
       } catch (rbErr) {
@@ -207,6 +313,8 @@ router.post('/admin', async (req, res) => {
 //     -> profile (status='pending', institutional_id)
 //     -> role-specific record (created up front, so an activated account
 //        is immediately complete — no half-accounts)
+//     -> (students) an ACTIVE enrollments row in an explicit semester +
+//        section — the same placement contract as POST /api/users/admin
 //     -> account_activations row (SHA-256 code hash, single-use, expiring)
 // The person activates via POST /api/auth/activate with institutional ID +
 // institutional email + code + a new password. The ROLE always comes from
@@ -229,10 +337,10 @@ router.post('/registry', async (req, res) => {
     const departmentId = req.body?.departmentId
       ? requireUuid(req.body.departmentId, 'departmentId')
       : null;
-    const semesterNumber = req.body?.semesterNumber
-      ? requireNumber(req.body.semesterNumber, 'semesterNumber', { min: 1, max: 10, integer: true })
-      : null;
-    const sectionId = req.body?.sectionId ? requireUuid(req.body.sectionId, 'sectionId') : null;
+
+    // Students: explicit semester + section, validated BEFORE the auth
+    // user exists (same contract as POST /api/users/admin).
+    const placement = role === 'student' ? await resolveEnrollmentPlacement(req.body) : null;
 
     // The institutional identity must be free before we touch auth.
     const { data: taken } = await supabase
@@ -287,19 +395,30 @@ router.post('/registry', async (req, res) => {
       //    academic code (enrollment_number / employee_id), preserving the
       //    existing UNIQUE constraints and the Phase 0 backfill mapping.
       if (role === 'student') {
-        const { error: studentError } = await supabase.from('students').insert({
-          profile_id: authUserId,
-          enrollment_number: institutionalId,
-          department_id: departmentId,
-          current_semester: semesterNumber != null ? String(semesterNumber) : null,
-          current_section: sectionId,
-        });
+        const { data: studentRow, error: studentError } = await supabase
+          .from('students')
+          .insert({
+            profile_id: authUserId,
+            enrollment_number: institutionalId,
+            department_id: departmentId,
+            // Derived from the validated placement rows — never guessed.
+            current_semester: placement.semester.semester_number,
+            current_section: placement.section.name,
+          })
+          .select('id')
+          .single();
         if (studentError) {
           if (studentError.code === '23505') {
             throw HttpError.conflict(`Institutional ID ${institutionalId} is already assigned`);
           }
           throw studentError;
         }
+
+        // Active enrollment created up front as well, so the account is
+        // immediately complete on activation — no half-accounts. Inside
+        // the rollback block: a failed insert removes the auth user and
+        // this student row below.
+        await insertActiveEnrollment(studentRow.id, placement);
       } else if (role === 'teacher') {
         const { error: teacherError } = await supabase.from('teachers').insert({
           profile_id: authUserId,
@@ -345,6 +464,8 @@ router.post('/registry', async (req, res) => {
             role,
             full_name: fullName,
             institutional_id: institutionalId,
+            semester_id: placement?.semester?.id ?? null,
+            section_id: placement?.section?.id ?? null,
           },
           ip_address: req.ip,
           user_agent: req.get('user-agent')?.slice(0, 300) || null,
@@ -363,12 +484,15 @@ router.post('/registry', async (req, res) => {
           role,
           institutional_id: institutionalId,
           status: 'pending',
+          semester_id: placement?.semester?.id ?? null,
+          section_id: placement?.section?.id ?? null,
           activationCode,
           activationExpiresAt: expiresAt,
         },
       });
     } catch (innerErr) {
-      // ROLLBACK: remove the auth user; profiles + role rows cascade.
+      // ROLLBACK: remove the auth user; profiles, role rows and the
+      // enrollment row (if it was created) all cascade away.
       try {
         await supabase.auth.admin.deleteUser(authUserId);
       } catch (rbErr) {

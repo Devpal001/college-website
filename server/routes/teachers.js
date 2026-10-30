@@ -123,7 +123,7 @@ meRouter.get('/dashboard', asyncHandler(async (req, res) => {
       .order('start_time'),
     supabase
       .from('notifications')
-      .select('*')
+      .select('id, title, message, type, priority, read, created_at')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
       .limit(5),

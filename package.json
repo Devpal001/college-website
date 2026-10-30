@@ -15,6 +15,7 @@
     "backup": "node scripts/export-data.mjs",
     "restore": "node scripts/restore-data.mjs",
     "verify:data": "node scripts/verify-data.mjs",
+    "verify:enrollments": "node scripts/verify-student-enrollments.mjs",
     "test:libs": "node scripts/test-shared-libs.mjs",
     "test:forms": "node scripts/test-public-forms.mjs",
     "test:auth-bundle": "node scripts/test-auth-bundle-split.mjs",
@@ -40,6 +41,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
+    "sharp": "^0.35.5",
     "vite": "^8.2.0"
   }
 }

@@ -1,16 +1,10 @@
 import { Calendar, Users, BookOpen, GraduationCap } from 'lucide-react';
-import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 function About() {
-  const [headerRef, headerVisible] = useScrollAnimation({ once: true });
-  const [missionRef, missionVisible] = useScrollAnimation({ once: true });
-  const [statsRef, statsVisible] = useScrollAnimation({ once: true });
-  const [storyRef, storyVisible] = useScrollAnimation({ once: true });
-
   return (
     <div>
       {/* Header */}
-      <section ref={headerRef} className={`px-6 py-20 text-center bg-bg-soft scroll-animate ${headerVisible ? 'is-visible' : ''}`}>
+      <section className="px-6 py-20 text-center bg-bg-soft fade-in">
         <h1 className="text-4xl font-bold text-text-main">About MBSCET</h1>
         <p className="text-text-muted mt-4 max-w-2xl mx-auto">
           For decades, we've been committed to academic excellence, innovation,
@@ -30,15 +24,15 @@ function About() {
         </a>
       </div>
       {/* Mission & Vision */}
-      <section id="mission-vision" ref={missionRef} className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className={`bg-surface rounded-soft-lg shadow-soft p-8 scroll-animate stagger-1 ${missionVisible ? 'is-visible' : ''}`}>
+      <section id="mission-vision" className="px-6 py-16 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-surface rounded-soft-lg shadow-soft p-8">
           <h3 className="text-xl font-bold text-text-main mb-3">Our Mission</h3>
           <p className="text-text-muted text-sm">
             To provide accessible, high-quality education that empowers students
             to achieve their full potential and make a meaningful impact on society.
           </p>
         </div>
-        <div className={`bg-surface rounded-soft-lg shadow-soft p-8 scroll-animate stagger-2 ${missionVisible ? 'is-visible' : ''}`}>
+        <div className="bg-surface rounded-soft-lg shadow-soft p-8">
           <h3 className="text-xl font-bold text-text-main mb-3">Our Vision</h3>
           <p className="text-text-muted text-sm">
              Welcome to Mahant Bachitttar Singh College of Engineering and Technology,
@@ -49,24 +43,24 @@ function About() {
       </section>
 
       {/* Stats */}
-      <section id="stats" ref={statsRef} className="px-6 py-16 bg-bg-soft">
+      <section id="stats" className="px-6 py-16 bg-bg-soft">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          <div className={`scroll-animate stagger-1 ${statsVisible ? 'is-visible' : ''}`}>
+          <div>
             <Calendar className="text-primary mx-auto mb-2" size={24} />
             <h3 className="text-3xl font-bold text-primary">25+</h3>
             <p className="text-text-muted text-sm mt-2">Years of Excellence</p>
           </div>
-          <div className={`scroll-animate stagger-2 ${statsVisible ? 'is-visible' : ''}`}>
+          <div>
             <Users className="text-primary mx-auto mb-2" size={24} />
             <h3 className="text-3xl font-bold text-primary">10,000+</h3>
             <p className="text-text-muted text-sm mt-2">Alumni Worldwide</p>
           </div>
-          <div className={`scroll-animate stagger-3 ${statsVisible ? 'is-visible' : ''}`}>
+          <div>
             <BookOpen className="text-primary mx-auto mb-2" size={24} />
             <h3 className="text-3xl font-bold text-primary">50+</h3>
             <p className="text-text-muted text-sm mt-2">Academic Programs</p>
           </div>
-          <div className={`scroll-animate stagger-4 ${statsVisible ? 'is-visible' : ''}`}>
+          <div>
             <GraduationCap className="text-primary mx-auto mb-2" size={24} />
             <h3 className="text-3xl font-bold text-primary">200+</h3>
             <p className="text-text-muted text-sm mt-2">Faculty Members</p>
@@ -75,7 +69,7 @@ function About() {
       </section>
 
       {/* History */}
-      <section id="story" ref={storyRef} className={`px-6 py-16 max-w-3xl mx-auto text-center scroll-animate ${storyVisible ? 'is-visible' : ''}`}>
+      <section id="story" className="px-6 py-16 max-w-3xl mx-auto text-center">
         <h2 className="text-2xl font-bold text-text-main mb-4">Our Story</h2>
         <p className="text-text-muted text-sm leading-relaxed mx-auto">
           Founded with a vision to make quality education accessible, MBSCET

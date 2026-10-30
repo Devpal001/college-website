@@ -124,7 +124,7 @@ router.get('/me', authRequired, async (req, res) => {
 
     let query = supabase
       .from('notifications')
-      .select('*')
+      .select('id, title, message, type, priority, read, created_at, data')
       .eq('user_id', userId);
 
     if (unreadOnly === 'true') {
@@ -177,7 +177,7 @@ router.put('/:id/read', authRequired, async (req, res) => {
     // Verify ownership
     const { data: notification, error: fetchError } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, user_id')
       .eq('id', id)
       .single();
 
@@ -242,7 +242,7 @@ router.delete('/:id', authRequired, async (req, res) => {
     // Verify ownership
     const { data: notification, error: fetchError } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, user_id')
       .eq('id', id)
       .single();
 

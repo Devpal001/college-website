@@ -105,13 +105,23 @@ const allowedOrigins = new Set([
   ...corsOriginEnv,
 ]);
 
+// Vite is also exposed on the local network for phone testing. The browser's
+// Origin is then the PC's private IPv4 address instead of localhost; allow only
+// private-network hosts on Vite's dev ports (not arbitrary origins/ports).
+const localViteOriginRe =
+  /^http:\/\/(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}):517[3-5]$/i;
+
 // Vercel preview deployments use deterministic project subdomains.
 const vercelPreviewRe = /^https:\/\/college-website(-[a-z0-9]+)*\.vercel\.app$/i;
 
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.has(origin) || vercelPreviewRe.test(origin)) {
+    if (
+      allowedOrigins.has(origin) ||
+      vercelPreviewRe.test(origin) ||
+      localViteOriginRe.test(origin)
+    ) {
       return callback(null, true);
     }
     console.warn(`[cors] blocked origin: ${origin}`);

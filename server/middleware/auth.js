@@ -10,7 +10,24 @@ import { supabase } from '../lib/db.js';
 // NOTE: Authorization is ALWAYS enforced server-side.
 // The frontend role checks are only a UI convenience.
 
+/**
+ * Narrow profile identity projection used by authRequired.
+ * Lifecycle + role enforcement only read id/role/status — the rest of the
+ * row (institutional identity, contact fields, is_active legacy flag,
+ * timestamps) is never consumed by any authenticated request, so every
+ * request stops paying to move it.
+ */
 const PUBLIC_ROLES = ['student', 'teacher', 'admin', 'super_admin'];
+
+// Every authenticated request fans out through authRequired +
+// getStudent/TeacherForAuth, which used to SELECT the whole row. Identity
+// checks only read id/role/status (profiles), placement fields (students),
+// and employee linkage (teachers) — contact blobs, HR fields, legacy
+// is_active and timestamps never leave the database on this path.
+const AUTH_PROFILE_COLUMNS = 'id, email, full_name, role, status';
+const STUDENT_IDENTITY_COLUMNS =
+  'id, profile_id, enrollment_number, department_id, current_semester, current_section';
+const TEACHER_IDENTITY_COLUMNS = 'id, profile_id, employee_id, department_id';
 
 /**
  * Middleware: requires a valid Bearer JWT.
@@ -39,7 +56,7 @@ export async function authRequired(req, res, next) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select(AUTH_PROFILE_COLUMNS)
       .eq('id', user.id)
       .single();
 
@@ -110,7 +127,7 @@ export async function getStudentForAuth(req, res) {
   // error === null) apart from a real query failure (error set).
   const { data: student, error } = await supabase
     .from('students')
-    .select('*')
+    .select(STUDENT_IDENTITY_COLUMNS)
     .eq('profile_id', req.user.id)
     .maybeSingle();
 
@@ -147,7 +164,7 @@ export async function getStudentForAuth(req, res) {
 export async function getTeacherForAuth(req, res) {
   const { data: teacher, error } = await supabase
     .from('teachers')
-    .select('*')
+    .select(TEACHER_IDENTITY_COLUMNS)
     .eq('profile_id', req.user.id)
     .maybeSingle();
 

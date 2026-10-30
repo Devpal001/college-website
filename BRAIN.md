@@ -486,6 +486,9 @@ Browser renders UI
 - Schema: `supabase/schema.sql` (authoritative).
 - Migrations: `supabase/migrations/` (H-1 RLS fix).
 - Seed: `scripts/seed-demo.mjs`.
+- Free plan → auto-pausing after ~1 week of low DB activity (warning email
+  first; only paid plans are exempt). No automatic backups on Free: weekly
+  `npm run backup` + runbook in `docs/BACKUP_MIGRATION.md` §6–7.
 
 ---
 
@@ -855,3 +858,159 @@ win came from deferring the auth chunk instead.
   Navbar + dashboard react immediately; hard-reload while signed in → stays
   signed in; sign out → returns to signed-out; a fresh private window opens
   the public site with zero requests to `supabaseClient-*.js`.
+
+## 22. "Student dashboard shows 0/0" — root cause (2026-09-30, investigated)
+
+**Symptom:** a student dashboard showed `Attendance 0/0 classes attended`,
+`Overall Marks 0/0 total` and both empty states, although the teacher had
+"already entered attendance and marks for this student".
+
+**Verdict: the dashboard was reporting the truth.** Nothing was wrong with the
+student-side read path, and RLS was never involved.
+
+| Checked | Result |
+| --- | --- |
+| Data exists | 859 `attendance` + 113 `marks` rows — the teacher writes do persist |
+| Read path | `GET /api/students/me/dashboard` → 200 with 173 attendance rows, 31 marks, `76.9%`, `1224/1700 (72%)` for an enrolled student |
+| ID agreement | teacher writes (`s.id` from `students(*,…)`) and student reads (`student_id = student.id`) use the same `students.id`; no profile-id/enrollment-id confusion |
+| RLS | not a factor — no browser code queries `attendance`/`marks` (verified by grep); the Express API reads with the service-role key, which bypasses RLS. **No policy was changed** |
+| Teacher UI | not stale: `submitAttendance`/`submitMarks` await the POST, surface 4xx, and reload after success |
+
+**Actual cause (two defects, in order of severity):**
+
+1. **Provisioning never creates an `enrollments` row.** `POST /api/users/admin`
+   and `POST /api/users/registry` insert `profiles` + `students` and stop
+   (`server/routes/users.js`); nothing in `server/` inserts into `enrollments`
+   at all — only `scripts/seed-demo.mjs` does. Teacher class lists
+   (`GET /api/sections/:sectionId/students`) are driven *entirely* by
+   `enrollments`, and `POST /api/attendance` re-checks enrollment before
+   writing. A provisioned student is therefore invisible to every teacher and
+   nothing can be recorded for them: `POST /api/attendance` answers
+   `400 Some students are not enrolled in this section` and writes zero rows.
+   Their dashboard correctly shows 0/0.
+   `students.current_semester` / `current_section` are *descriptive columns*, not
+   the link — filling them in the admin form does not enroll anyone, which is
+   what made the account look assigned.
+2. **Display-name collision pointed the data at the wrong `students.id`.**
+   Two student records are named *Aarav Sharma*: `MBSCET-STU-2026-00001`
+   (`aarav.sharma@mbscet.in`, no enrollment → the dashboard being checked) and
+   seeded `STU002` (`demo-student2@mbscet.demo`, enrolled in CSE-5A → the only
+   one a teacher can select). The roster renders `profiles.full_name`, so
+   everything entered under that name belongs to `STU002`.
+
+**Latent defect found on the way (now fixed):** the dashboard route destructured
+`Promise.all` results with `{ data }` only, discarding every query error — so a
+failing read renders as "No attendance records yet", indistinguishable from an
+honest empty state. It was *already* swallowing a live error for this student
+(`.eq('id', null)` on `departments` → `22P02 invalid input syntax for type uuid`,
+because the provisioned `department_id` is NULL). `server/routes/students.js`
+now fails the core reads (`enrollments`/`attendance`/`marks`) loudly with
+`500 STUDENT_RECORDS_UNAVAILABLE`, skips the department query when
+`department_id` is NULL, and keeps the decorative sections soft.
+
+**Guard:** `npm run verify:enrollments`
+(`scripts/verify-student-enrollments.mjs`, read-only, prints no credentials)
+asserts the invariant that broke — every student record has an active
+`enrollments` row — plus attendance/marks written outside an enrollment, and
+warns on duplicate display names. It now passes (exit 0): all 7 students are
+enrolled; the duplicate *Aarav Sharma* names remain as a **warning** (two real
+records, different accounts — identify students by `students.id` /
+`enrollment_number`, never by name).
+
+**Status (2026-10-01): both defects fixed.** See §23 for the final
+enrollment/provisioning model; the previously open product decision
+(semester/section placement at provisioning + backfill of the two unlinked
+accounts) was resolved and applied.
+
+## 23. Enrollment / provisioning model (final — 2026-10-01)
+
+**Invariant:** a `students` row and its active `enrollments` row are created
+together. A student account without an active enrollment is invisible to every
+teacher (class lists, attendance, marks), so provisioning never leaves one
+behind.
+
+### Contract (both provisioning endpoints)
+
+`POST /api/users/admin` and `POST /api/users/registry` require, **for
+`role: student` only**, an explicit placement in the body:
+
+```jsonc
+{
+  "semesterId": "<uuid of semesters.id>",   // required — never inferred
+  "sectionId":  "<uuid of sections.id>"     // required — never inferred
+}
+```
+
+Nothing is guessed: no default semester, no name matching, no reuse of a prior
+record. Validation happens in `resolveEnrollmentPlacement()`
+(`server/routes/users.js`) **before the auth user is created** (fail fast, zero
+side effects):
+
+| Check | Failure |
+| --- | --- |
+| both ids present | `400 PLACEMENT_REQUIRED` |
+| semester row exists | `400 SEMESTER_NOT_FOUND` |
+| section row exists | `400 SECTION_NOT_FOUND` |
+| `section.semester_id === semesterId` | `400 SEMESTER_SECTION_MISMATCH` |
+
+(`semesterNumber` from the old admin form was **removed** — `students.current_semester`
+is now derived from the validated `semesters` row and `students.current_section`
+from the validated `sections.name` label, so the descriptive columns can never
+disagree with the enrollment.)
+
+### Write sequence & atomicity
+
+1. validate placement (above) → 2. `auth.admin.createUser` → 3. reconcile
+`profiles` → 4. insert `students` (`.select('id')`) → 5. insert **active
+`enrollments`** row (`insertActiveEnrollment`) → 6. registry only:
+`account_activations` → 7. audit log (best-effort).
+
+Steps 4–6 run inside the pre-existing rollback block: any error triggers
+`auth.admin.deleteUser()`, and `profiles → students → enrollments →
+attendance/marks` all cascade — **an enrollment failure never leaves a partial
+student**. Duplicate protection is belt-and-braces: `enrollments`
+`UNIQUE(student_id, semester_id)` → `409 DUPLICATE_ENROLLMENT` with rollback;
+`23503` FK races → `400 INVALID_PLACEMENT`.
+
+### Auth / roles / RLS
+
+Unchanged: router-level `authRequired + requireRole('admin','super_admin')`,
+server-side validation of every field, audit logging, and the service-role data
+access path (no RLS policy was added, changed or weakened).
+
+### Admin UI (`src/pages/AdminUsers.jsx`)
+
+The provisioning form shows a **Class / Section** picker (from
+`GET /api/sections`) for students in both modes (direct + registry). The
+semester is **derived from the section's real `semesters` FK** (same pattern as
+the TeacherAssignments panel), displayed as read-only text, and submitted as
+`semesterId` alongside `sectionId`. Client-side it refuses to submit without a
+section; the server re-validates regardless.
+
+### Backfill (applied 2026-10-01)
+
+`scripts/backfill-enrollments.mjs` (dry-run by default, `--apply`, idempotent,
+identifies records by `students.id` + `enrollment_number`, never by name):
+
+| students.id | enrollment_number | write |
+| --- | --- | --- |
+| `b1419930-fa8e-49e5-9c23-41c9462b8b0a` | MBSCET-STU-2026-00001 | + enrollment active → Semester 5 / CSE-5A; `current_semester 3 → 5` |
+| `4758a39d-86e1-4ac3-8e82-6e5ac609c1de` | PROBE-001 | + enrollment active → Semester 5 / CSE-5A |
+
+Placement rationale: Semester 5 / CSE-5A is the only section in the system, it
+owns every `teacher_subjects`/attendance/marks record, and semester 3 (where
+MBSCET-STU-2026-00001 was recorded) has no section row — the `current_semester`
+reconciliation keeps the record consistent with its own enrollment.
+
+### Verification (all green, 2026-10-01)
+
+- Live chain (temp script, deleted after run): provision → enrollment row →
+  teacher class list (`TCH001` sees the student) → `POST /api/attendance`
+  accepted → `POST /api/marks` accepted → student dashboard shows
+  `1/1 (100%)` attendance and `10/10` marks — 21/21 assertions, full cleanup
+  via cascade.
+- `scripts/test-user-provisioning.mjs` — 27/27 (placement required/mismatch/
+  unknown-semester negatives, enrollment-row creation, rollback, cascade).
+- `npm run verify:enrollments` — exit 0.
+- Guards: `npm run lint`, `npm run test:libs`, `npm run test:forms`,
+  `npm run test:auth-bundle`, `npm run build`, `git diff --check`.

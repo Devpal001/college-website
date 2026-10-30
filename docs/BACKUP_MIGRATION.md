@@ -140,3 +140,114 @@ Rules that keep this true:
 * Keep the dump **and** one JSON snapshot: the dump restores exactly, the
   snapshot is verifiable and readable without PostgreSQL tooling.
 * Store snapshots outside the git repository (`data/` is ignored on purpose).
+
+---
+
+## 6. Free-plan project pausing — policy (verified 2026-10-09)
+
+This project runs on the Supabase **Free plan**. Supabase warns the project
+owner by email that Free projects are paused automatically after about a week of
+low database activity. Everything below is taken from Supabase's own
+documentation and pricing pages on 2026-10-09 — re-check them if this is read
+much later:
+
+| Fact | Source |
+| --- | --- |
+| Free projects are paused after ~1 week of insufficient **user database activity**; reads/writes through the API count because they hit the database | Docs → Platform → Project Pausing |
+| "Typically a few user requests to the database each day over the previous week is enough to keep the project from being paused" — explicitly not a guarantee | same |
+| A warning email is sent ~1 week before the pause; a second email once the project is paused | same |
+| After a warning email, opening the project in the Dashboard, or real traffic from the connected application, generates qualifying activity | same |
+| A paused project can be resumed from the Dashboard with data and configuration intact; current docs state a restore window of **up to 1 year**, while the warning email may state **90 days** — plan for the shorter figure | Docs → Project Pausing vs. the owner's email |
+| The only documented way to be exempt from inactivity pausing is a paid plan: "Paid projects cannot be paused and are not subject to pausing for inactivity" (Pro from **$25/month** — verify current pricing on supabase.com/pricing) | Docs → Preventing automatic project pausing; Pricing |
+| The Free plan gets **no automatic backups**. Daily backups start at Pro (7-day retention). Supabase recommends that Free projects "regularly export their data using the Supabase CLI `db dump` command and maintain off-site backups" | Docs → Platform → Database Backups |
+| Database backups on any plan exclude Storage objects and custom-role passwords | same |
+
+What this means for this platform:
+
+* Everything depends on this one project: the browser signs in through its
+  GoTrue endpoint and the Express API reads/writes all 29 tables through it
+  (architecture diagram at the top of this file). A pause takes login and every
+  dashboard down until the project is resumed.
+* There is **no supported Free-plan setting** that disables automatic pausing.
+  Do not rely on synthetic or scheduled pings to game the activity detector —
+  real application use is the intended signal.
+* After the restore window expires, Supabase's retained backups are deleted and
+  the data is unrecoverable. An **off-project copy** (this document's §1
+  procedures) is the only insurance that does not cost money.
+* This application does **not** use Supabase Storage (campus/gallery images are
+  bundled in `src/assets/`), so the Storage exclusion above loses nothing here.
+
+---
+
+## 7. Free-plan runbook — backup cadence & pausing preparedness
+
+### 7.1 Maintenance cadence (no paid plan required)
+
+| When | What | How |
+| --- | --- | --- |
+| Weekly | JSON snapshot of all 29 tables | `npm run backup` (or the opt-in workflow in §7.2) |
+| Weekly / monthly | Byte-exact dump (needs `DATABASE_URL`) | `pg_dump … -Fc` — §1.2 |
+| Before every schema change or bulk import | Snapshot + schema dump | §1.1 + §1.2 |
+| Monthly | Restore drill | `node scripts/restore-data.mjs --dir <snapshot>` (dry-run by default) |
+| When the pausing warning email arrives | Follow §7.3 | — |
+
+Copies must live **off this machine** (college-controlled storage, external
+drive, encrypted archive). `data/` is git-ignored on purpose: a snapshot sitting
+next to the database credentials on the same disk is not a disaster-recovery
+plan.
+
+### 7.2 Automated weekly export (opt-in, GitHub Actions)
+
+`.github/workflows/backup.yml` runs weekly (Monday 03:00 UTC) and on manual
+dispatch:
+
+* Reads repository secrets `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+  (the same pair CI already uses) and optionally `DATABASE_URL` (adds a
+  `pg_dump -Fc` file alongside the JSON export).
+* If the Supabase secrets are absent it **skips cleanly** — the workflow never
+  fails just because backups are not configured.
+* Artifacts are uploaded **only** when an extra repository secret
+  `BACKUP_ARTIFACTS_ENABLED=true` is set. This repository is public: treat
+  every artifact as sensitive user data, keep the retention short, and do not
+  rely on artifacts as the off-site copy of record (§7.1).
+* The `pg_dump` step is best-effort: a hosted runner's `pg_dump` major version
+  must be ≥ the project's Postgres version; if it cannot run, the version-
+  independent JSON snapshot is still produced.
+* Secrets come only from GitHub's secret store — never printed, never committed.
+
+### 7.3 When the pausing warning email arrives
+
+1. Take a snapshot immediately: `npm run backup`, and `pg_dump … -Fc` when
+   `DATABASE_URL` is available (§1.2). Copy the files off this machine.
+2. Open the project in the Supabase Dashboard — the docs list a dashboard visit
+   as qualifying activity after a warning.
+3. Verify the snapshot: `node scripts/verify-data.mjs --dir data/backup-…`.
+4. If students/teachers are actively using the deployed site, normal
+   application traffic is the intended activity signal — check API/web health
+   (`node scripts/status.mjs`) instead of generating test requests.
+5. If pausing must be impossible (e.g. during admissions or exams), the only
+   documented option is upgrading to Pro — an owner decision that costs money.
+
+### 7.4 If the project is paused anyway
+
+1. Dashboard → organization → project → **Resume project**. Data and
+   configuration return as they were; do this well inside the restore window
+   (§6 — treat the shorter figure from the email as the deadline).
+2. After resuming: `node scripts/status.mjs`, then
+   `node scripts/verify-data.mjs --dir <latest snapshot>`, then spot-check
+   logins for all three roles.
+3. Anything missing versus the snapshot: restore paths in §2 (`pg_restore`, or
+   `restore-data.mjs --dir … --confirm`).
+4. Auth users live outside the `public` schema — §2.2 applies: recreate via the
+   service-role admin API, or dump the `auth` schema with `pg_dump` when
+   `DATABASE_URL` is available.
+
+### 7.5 What a JSON snapshot does NOT contain
+
+| Item | Where it lives | How to preserve |
+| --- | --- | --- |
+| `auth.users` (passwords, identities, sessions) | Supabase GoTrue | `pg_dump` of the `auth` schema (`DATABASE_URL`), or recreate via the admin API — §2.2 |
+| Schema, RLS policies, functions, triggers, sequences | database DDL | already in git: `supabase/schema.sql` + `supabase/migrations/`; byte-exact: `pg_dump --schema-only` |
+| Storage buckets / objects | Supabase Storage | not used by this app — images are bundled in `src/assets/` |
+| Project settings (JWT secret, rate limits, providers) | Supabase Dashboard | note them manually in the college's password manager; nothing in this repo captures them |
+| Env values on Vercel / Render | host dashboards | keep `.env.example` in sync; store real values in a password manager, never in git |

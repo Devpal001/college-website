@@ -1,0 +1,85 @@
+# ============================================================
+# OPTIONAL weekly data backup (read-only against Supabase).
+#
+# Purpose: disaster-recovery snapshots for a Free-plan project that
+# receives no automatic backups. See docs/BACKUP_MIGRATION.md §6-7.
+#
+# Safety model:
+#   * Skips cleanly when the Supabase secrets are not configured.
+#   * Never writes to the database (scripts/export-data.mjs is read-only).
+#   * Uploads artifacts ONLY when BACKUP_ARTIFACTS_ENABLED=true is set as a
+#     repository secret — this repo is public, so treat artifacts as
+#     sensitive user data with short retention. Artifacts expire; keep an
+#     off-site copy of record (pg_dump with DATABASE_URL, stored in
+#     college-controlled storage).
+#   * Secrets come from GitHub's secret store only; never printed or committed.
+# ============================================================
+name: Weekly backup
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Monday 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BACKUP_ARTIFACTS_ENABLED: ${{ secrets.BACKUP_ARTIFACTS_ENABLED }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check backup configuration
+        id: guard
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Supabase secrets are not configured — backup skipped. See docs/BACKUP_MIGRATION.md §7.2."
+          fi
+
+      - name: Export tables to JSON (read-only)
+        if: steps.guard.outputs.enabled == 'true'
+        run: npm run backup
+
+      - name: pg_dump (best-effort, byte-exact)
+        if: steps.guard.outputs.enabled == 'true' && env.DATABASE_URL != ''
+        # Best-effort: the runner's pg_dump major version must be >= the
+        # project's Postgres version. The JSON export above remains the
+        # guaranteed deliverable.
+        continue-on-error: true
+        run: |
+          STAMP=$(date -u +%Y%m%d-%H%M%S)
+          mkdir -p data
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges -Fc -f "data/backup-${STAMP}.dump"
+          pg_dump "$DATABASE_URL" --schema=public --schema-only -f "data/schema-${STAMP}.sql"
+          echo "Wrote data/backup-${STAMP}.dump and data/schema-${STAMP}.sql"
+
+      - name: Upload artifacts (opt-in — sensitive data)
+        if: steps.guard.outputs.enabled == 'true' && env.BACKUP_ARTIFACTS_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: data/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Notice
+        if: always() && (steps.guard.outputs.enabled != 'true' || env.BACKUP_ARTIFACTS_ENABLED != 'true')
+        run: |
+          echo "::notice::No artifact uploaded. Artifacts require BACKUP_ARTIFACTS_ENABLED=true (repo secret); they expire and are NOT the off-site copy of record. Keep a weekly pg_dump in college-controlled storage — docs/BACKUP_MIGRATION.md §7.1."

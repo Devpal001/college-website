@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import campus1 from '../assets/campus/college_auditorium.jpg';
-import campus2 from '../assets/campus/library_2nd_floor.jpg';
-import campus3 from '../assets/campus/computer_science_advance_lab.jpg';
-import campus4 from '../assets/campus/mechanical_lab1.jpg';
-import campus5 from '../assets/campus/college_playground.jpg';
+import campus1 from '../assets/campus/college_auditorium.webp';
+import campus2 from '../assets/campus/library_2nd_floor.webp';
+import campus3 from '../assets/campus/computer_science_advance_lab.webp';
+import campus4 from '../assets/campus/mechanical_lab1.webp';
+import campus5 from '../assets/campus/college_playground.webp';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 const images = [

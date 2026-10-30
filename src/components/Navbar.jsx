@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import logo from '../assets/mbslogo.png';
+import logo from '../assets/mbslogo.webp';
 import NewsTicker from './NewsTicker';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
@@ -287,6 +287,7 @@ function Navbar() {
           <img
             src={logo}
             alt="MBSCET Jammu Logo"
+            decoding="async"
             className={`nav-morph-logo object-contain transition-all duration-300 ${isScrolled ? 'h-12 w-12' : 'h-20 w-20 md:h-30 md:w-30'}`}
           />
           <div aria-hidden="true" className="nav-morph-lockup absolute left-full top-1/2 ml-3 hidden md:block whitespace-nowrap">

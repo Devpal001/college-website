@@ -29,6 +29,13 @@ async function fetchWithTimeout(url) {
       redirect: 'follow',
       signal: controller.signal,
     });
+  } catch (error) {
+    const cause = error?.cause;
+    if (error?.name === 'AbortError') {
+      throw new Error(`Timed out after ${FETCH_TIMEOUT_MS}ms fetching ${url}`, { cause: error });
+    }
+    const detail = cause?.code || cause?.message || error?.message || 'unknown network error';
+    throw new Error(`Unable to fetch ${url}: ${detail}`, { cause: error });
   } finally {
     clearTimeout(timer);
   }
