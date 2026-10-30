@@ -335,11 +335,11 @@ p {
 @media (min-width: 768px) {
   .nav-root {
     transition: none;
-    padding-bottom: calc(1.5rem - var(--nav-p, 0) * 1rem); /* pb-6 → pb-2 */
+    padding-bottom: calc(0.75rem - var(--nav-p, 0) * 0.25rem); /* shorter top-of-page header */
   }
   .nav-morph-toprow {
     transition: none;
-    padding-top: calc(1.5rem - var(--nav-p, 0) * 0.75rem); /* pt-6 → pt-3 */
+    padding-top: calc(0.75rem - var(--nav-p, 0) * 0.75rem); /* compact brand row */
   }
   .nav-morph-brand {
     transition: none;
@@ -362,8 +362,8 @@ p {
   }
   .nav-morph-logo {
     transition: none;
-    height: calc(7.5rem - var(--nav-p, 0) * 4.5rem); /* md:h-30 → h-12 */
-    width: calc(7.5rem - var(--nav-p, 0) * 4.5rem);
+    height: calc(5rem - var(--nav-p, 0) * 2rem); /* 80px at top → 48px compact */
+    width: calc(5rem - var(--nav-p, 0) * 2rem);
   }
   .nav-morph-lockup {
     /* MBSCET + Jammu branding beside the logo; arrives in the second half
@@ -373,7 +373,7 @@ p {
   }
   .nav-morph-pill-expanded {
     transition: none;
-    height: calc(3.5rem - var(--nav-p, 0) * 3.5rem); /* band collapses to 0 */
+    height: calc(3rem - var(--nav-p, 0) * 3rem); /* band collapses to 0 */
     overflow: hidden;
   }
   .nav-morph-pill-expanded > nav {
@@ -410,8 +410,8 @@ p {
 @media (min-width: 1024px) {
   .nav-morph-toprow {
     transition: none;
-    height: calc(4rem - var(--nav-p, 0) * 4rem); /* band collapses to 0 */
-    padding-top: calc(1.5rem - var(--nav-p, 0) * 1.5rem); /* pt-6 → 0 */
+    height: calc(3.75rem - var(--nav-p, 0) * 3.75rem); /* compact brand row collapses */
+    padding-top: calc(0.75rem - var(--nav-p, 0) * 0.75rem);
     overflow: hidden;
   }
   .nav-morph-toprow-controls {
@@ -420,7 +420,7 @@ p {
   .nav-morph-logo-row {
     transition: none;
     margin-top: calc(-1rem + var(--nav-p, 0) * 1rem); /* -mt-4 → 0 (no toprow left to overlap) */
-    margin-bottom: calc(1rem - var(--nav-p, 0) * 0.5rem); /* md:mb-4 → mb-2 */
+    margin-bottom: calc(0.5rem - var(--nav-p, 0) * 0.25rem); /* tighter brand-to-nav spacing */
     padding-top: calc(var(--nav-p, 0) * 0.5rem); /* breathing room when compact */
   }
   .nav-morph-logo-box {
