@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { Bell, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
 import {
@@ -13,6 +14,30 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const buttonRef = useRef(null);
+  const [panelPosition, setPanelPosition] = useState(null);
+
+  const updatePanelPosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const availableHeight = Math.max(0, window.innerHeight - 16);
+    const maxPanelHeight = Math.min(500, availableHeight);
+    setPanelPosition({
+      top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - maxPanelHeight - 8)),
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+    };
+  }, [isOpen, updatePanelPosition]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -88,7 +113,11 @@ export default function NotificationBell() {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!isOpen) updatePanelPosition();
+          setIsOpen(!isOpen);
+        }}
         className="relative p-2 rounded-full hover:bg-bg-soft transition-colors"
         aria-label="Notifications"
         aria-expanded={isOpen}
@@ -102,12 +131,15 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <>
+        createPortal(<>
           <div 
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[9998]"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-2 w-96 bg-surface rounded-soft-lg shadow-soft border border-text-muted/15 z-50 max-h-[500px] overflow-hidden">
+          <div
+            className="fixed z-[9999] w-[min(24rem,calc(100vw-1rem))] bg-surface rounded-soft-lg shadow-soft border border-text-muted/15 max-h-[min(31.25rem,calc(100vh-1rem))] overflow-hidden"
+            style={panelPosition ? { top: panelPosition.top, right: panelPosition.right } : undefined}
+          >
             <div className="p-4 border-b border-text-muted/15 flex items-center justify-between">
               <h3 className="font-semibold text-text-main">Notifications</h3>
               {unreadCount > 0 && (
@@ -194,7 +226,7 @@ export default function NotificationBell() {
               </Link>
             </div>
           </div>
-        </>
+        </>, document.body)
       )}
     </div>
   );
