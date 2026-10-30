@@ -5,7 +5,7 @@ import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { dashboardPathForRole, signOut } from '../lib/auth';
-import { Sun, Moon, Menu, X, Images, Home, BookOpen, Building2, Bot } from 'lucide-react';
+import { Sun, Moon, Menu, X, Home, BookOpen, Building2, Bot } from 'lucide-react';
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -34,11 +34,31 @@ function Navbar() {
   // component previously kept its own duplicate copy of both.
   const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Keep the full navigation in normal document flow. A tall sticky header
-  // with scroll-linked layout morphing caused content overlap and jank.
-  const isScrolled = false;
+  const [isScrolled, setIsScrolled] = useState(() => window.innerWidth >= 768 && window.scrollY > 100);
+  const isScrolledRef = useRef(window.innerWidth >= 768 && window.scrollY > 100);
   const menuButtonRef = useRef(null);
   const menuRef = useRef(null);
+  const headerRef = useRef(null);
+
+  // Update the compact header only when the scroll threshold is crossed.
+  // The news ticker is outside the sticky header, so it scrolls away normally.
+  useEffect(() => {
+    const update = () => {
+      const nextScrolled = window.innerWidth >= 768 && window.scrollY > 100;
+      if (isScrolledRef.current === nextScrolled) return;
+      isScrolledRef.current = nextScrolled;
+      headerRef.current?.style.setProperty('--nav-p', nextScrolled ? '1' : '0');
+      setIsScrolled(nextScrolled);
+    };
+    headerRef.current?.style.setProperty('--nav-p', isScrolledRef.current ? '1' : '0');
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
 
   // Theme switching: toggle the `dark` class on <html> and persist the
   // choice. All palette values live in src/index.css (:root + html.dark);
@@ -135,10 +155,12 @@ function Navbar() {
   }, [menuOpen]);
 
   return (
-    // Keep the header in document flow so it cannot cover page content while
-    // scrolling. Mobile's bottom navigation remains fixed independently.
+    <>
+    {/* Desktop keeps a compact navigation bar pinned after the full brand
+        header scrolls away. Mobile uses its fixed bottom navigation and menu. */}
     <div
-      className="nav-root relative w-full pb-6"
+      ref={headerRef}
+      className={`nav-root relative w-full transition-all duration-300 md:sticky md:top-0 md:z-50 ${isScrolled ? 'pb-2 bg-navbar border-b border-text-muted/25 md:bg-transparent md:border-b-0' : 'pb-6'}`}
     >
       {/* Desktop-only continuous bar background + border: fades in with
           --nav-p instead of popping at the threshold. Mobile keeps the
@@ -405,10 +427,11 @@ function Navbar() {
           </ul>
         </nav>
       </div>
+    </div>
 
       {/* Mobile slide-down menu */}
       {menuOpen && (
-        <div className="md:hidden px-6 mt-2">
+        <div className="md:hidden fixed inset-x-4 bottom-16 z-[60]">
           <nav
             ref={menuRef}
             id="mobile-menu"
@@ -435,6 +458,20 @@ function Navbar() {
                   </li>
                 );
               })}
+              {user && dashboardPath && (
+                <li>
+                  <Link to={dashboardPath} onClick={() => setMenuOpen(false)} className="block py-1 hover:text-primary transition">
+                    Dashboard
+                  </Link>
+                </li>
+              )}
+              {user && (
+                <li>
+                  <Link to="/notifications" onClick={() => setMenuOpen(false)} className="block py-1 hover:text-primary transition">
+                    Notifications
+                  </Link>
+                </li>
+              )}
               <li className="border-t border-text-muted/25 pt-3">
                 {user ? (
                   <button
@@ -454,12 +491,13 @@ function Navbar() {
         </div>
       )}
 
-      {/* News ticker — sits below nav on all breakpoints */}
-      <div className={`nav-morph-ticker px-6 md:px-8 transition-all duration-300 ${isScrolled ? 'mt-2' : 'mt-4'}`}>
-        <NewsTicker />
-      </div>
+    {/* Keep the ticker in document flow so it scrolls away instead of staying
+        pinned under the compact navigation. */}
+    <div className="px-6 md:px-8 mt-4">
+      <NewsTicker />
+    </div>
 
-      {/* Mobile bottom navigation bar */}
+    {/* Mobile bottom navigation bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-navbar border-t border-text-muted/25 z-50">
         <div className="flex justify-around items-center py-3">
           <Link
@@ -484,17 +522,16 @@ function Navbar() {
             <BookOpen size={20} />
             <span className="text-xs">Departments</span>
           </Link>
-          <Link
-            to="/gallery"
-            className={`flex flex-col items-center gap-1 transition ${
-              location.pathname === '/gallery' ? 'text-primary font-semibold' : 'text-text-muted'
-            }`}
-            onClick={() => setMenuOpen(false)}
-            aria-current={location.pathname === '/gallery' ? 'page' : undefined}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className={`flex flex-col items-center gap-1 ${menuOpen ? 'text-primary' : 'text-text-muted'}`}
+            aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={menuOpen}
           >
-            <Images size={20} />
-            <span className="text-xs">Gallery</span>
-          </Link>
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            <span className="text-xs">Menu</span>
+          </button>
           {user && (
             <button
               type="button"
@@ -516,7 +553,7 @@ function Navbar() {
           </Link>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
