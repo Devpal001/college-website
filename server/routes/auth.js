@@ -357,6 +357,22 @@ const ACTIVATION_GENERIC_ERROR =
 const LOGIN_GENERIC_ERROR =
   'Login failed. Check your institutional ID and password, then try again.';
 
+// Refresh on a short-lived isolated client so the service-role client never
+// adopts a student's session in its shared auth state.
+router.post('/refresh', rateLimitAttempts, async (req, res) => {
+  try {
+    const refreshToken = requireString(req.body?.refresh_token, 'refresh_token', { min: 20, max: 4096 });
+    const refreshClient = createSessionAuthClient();
+    const { data, error } = await refreshClient.auth.refreshSession({ refresh_token: refreshToken });
+    if (error || !data?.session) {
+      return res.status(401).json({ error: 'Your session expired. Please sign in again.' });
+    }
+    return res.json({ session: data.session, user: data.user });
+  } catch {
+    return res.status(400).json({ error: 'Your session expired. Please sign in again.' });
+  }
+});
+
 router.post('/login', rateLimitAttempts, async (req, res) => {
   try {
     const institutionalId = normalizeInstitutionalId(
